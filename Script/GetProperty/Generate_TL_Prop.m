@@ -1,5 +1,9 @@
 function [TL_property] = Generate_TL_Prop(libLoc,R,p_min,p_max,T_min,T_max,p_point,T_point)
 
+% Example\
+% Generate_TL_Prop(libLoc,R,p_min,p_max,T_min,T_max,p_point,T_point)
+% Generate_TL_Prop('E:\refprop10\REFPROP','Water',0.01,50,273.16,373.16,20,20)
+
 p = logspace(log10(p_min),log10(p_max),p_point);              % Mpa
 T = linspace(T_min,T_max,T_point);
 
