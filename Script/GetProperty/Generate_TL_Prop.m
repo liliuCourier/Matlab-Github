@@ -1,42 +1,22 @@
-%% 计算参数
-clc
-clear
+function [TL_property] = Generate_TL_Prop(libLoc,R,p_min,p_max,T_min,T_max,p_point,T_point)
 
-% 调用路径支持
-libLoc = 'E:\refprop10\REFPROP';  
-
-% 输入工质
-R = 'Water';
-
-% 输入压力和温度的插值个数
-p_point = 12;
-T_point = 11;
-
-% 压力的上下限，温度的上下限
-T_min = 273.16;                  % k
-T_max = 373.16;                  % k
-p_min = 0.01;                    % MPa
-p_max = 50;                      % MPa
+p = logspace(log10(p_min),log10(p_max),p_point);              % Mpa
+T = linspace(T_min,T_max,T_point);
 
 % 计算三相点的各种值
-T_trip = getFluidProperty(libLoc, "T", "TRIP", 0, "", nan, R, 1, 1, 'MASS BASE SI');
 p_trip = getFluidProperty(libLoc, "P", "TRIP", 0, "", nan, R, 1, 1, 'MASS SI');
 
 % 临界压力                 Pa
 p_critcal_cal = getFluidProperty(libLoc, 'P','CRIT',1,'',123,R, 1, 1, 'MASS SI');     % MPa   
 
-% 确认处于亚临界的工况个数
-n_sub = p_point - sum(p>p_critcal);
-
-p = [0.01, 0.1, 5:5:50];                % Mpa
-T = linspace(T_min,T_max,T_point);
-
 % 压力上下限警告
+% 这里的温度上下限没有办法写，因为单一压力可以计算出两个固相的温度，这时候需要用户自己去确定
+% 温度的上下限，尤其是和压力相互匹配的温度上下限,不过调用的时候refprop也会报错，也没关系
 assert(p(1) > p_trip, ...
         'GenerateProperty:MinPressure %c Less Than Triple %c', [num2str(p(1)) ' MPa'], [num2str(p_trip), ' MPa'])
-assert(T(1) > T_trip, ...
-        'GenerateProperty:MinTemperature %c Less Than Triple %c', [num2str(T(1)) ' K'], [num2str(T_trip), ' K'])
 
+% 确认处于亚临界的工况个数
+n_sub = p_point - sum(p>p_critcal_cal);
 
 % 大气压（默认）           MPa
 p_atm = 0.101325;
@@ -76,11 +56,11 @@ TL_property = struct();
 TL_property.T = T;
 TL_property.p = p;
 TL_property.p_atm = p_atm;
-TL_property.matrix
-% TL_property.T_min = T_min;
-% TL_property.T_max = T_max;
-% TL_property.p_min = p_min;
-% TL_property.p_max = p_max;
+TL_property.matrix = matrix;
+TL_property.T_min = T_min;
+TL_property.T_max = T_max;
+TL_property.p_min = p_min;
+TL_property.p_max = p_max;
 TL_property.D = D;
 TL_property.beta = beta;
 TL_property.alpha = alpha;
@@ -88,3 +68,5 @@ TL_property.u = u;
 TL_property.cp = cp;
 TL_property.nu = nu;
 TL_property.k = k;
+
+end
