@@ -17,11 +17,12 @@ function [TP_property] = Generate_TP_Prop(libLoc,R,p_min,p_max,u_min,u_max,p_poi
 
 % Generate_TP_Prop(libLoc,R,p_min,p_max,u_min,u_max,p_point,u_point_liq,u_point_vap)
 % Generate_TP_Prop('E:\refprop10\REFPROP','R134a',0.001,5.5,80,510,100,25,25)
+% Generate_TP_Prop('E:\refprop10\REFPROP','R290a',0.5,5,150,500,100,25,25)
 
 % 计算三相点的各种值
-T_trip = getFluidProperty(libLoc, "T", "TRIP", 0, "", nan, R, 1, 1, 'MASS BASE SI');
+%T_trip = getFluidProperty(libLoc, "T", "TRIP", 0, "", nan, R, 1, 1, 'MASS BASE SI');
 p_trip = getFluidProperty(libLoc, "P", "TRIP", 0, "", nan, R, 1, 1, 'MASS BASE SI');
-u_trip = getFluidProperty(libLoc, "E", "TRIP", 0, "", nan, R, 1, 1, 'MASS BASE SI');
+%u_trip = getFluidProperty(libLoc, "E", "TRIP", 0, "", nan, R, 1, 1, 'MASS BASE SI');
 
 % 临界压力                 Pa
 p_critcal_cal = getFluidProperty(libLoc, 'P','CRIT',1,'',123,R, 1, 1, 'MASS BASE SI');     % Pa
