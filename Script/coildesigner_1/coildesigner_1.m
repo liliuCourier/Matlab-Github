@@ -33,15 +33,15 @@ TC_matrix = [-1 1 0 0 0 0 0 0;
     0 0 0 -1 0 0 0 1];
 
 % 边界条件-boundary condition——后续要把边界条件写成结构体
-h_inlet = 320;
+h_inlet = 300;
 mdot_in = 10e-3;
 p_in = 1;
 T_wall = 300;
 
-CV_num = 5;
+CV_num = 50;
 %boundaryStrcut;
 % 管长
-L = 1;
+L = 0.6;
 % 管直径
 D = 5e-3;
 % 表面粗糙度
@@ -54,9 +54,9 @@ GeoCondition = struct("L",L,...
 % 初始条件-initial condition——同理也要把初始条件写成结构体
 % 初始条件为列向量
 mdot_init = [mdot_in/2;mdot_in/2;mdot_in;mdot_in;mdot_in/2;mdot_in/2;mdot_in;mdot_in];
-h_out_init = [280;271;265;255;280;272;260;250];%300*ones(8,1);
-p_con = [0.999;0.999;0.998;0.997;0.996;0.995];
-p_out_init = 0.994;
+h_out_init = 260*ones(8,1);%[310;330;350;400;310;330;380;430];%310*ones(8,1);%[280;271;265;255;280;272;260;250];[310;320;325;327;310;320;326;328]
+p_con = [0.99;0.99;0.98;0.97;0.96;0.95];
+p_out_init = 0.94;
 
 % 组装初始条件_列向量
 x0 = [mdot_init;h_out_init;p_con;p_out_init];

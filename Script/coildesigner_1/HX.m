@@ -65,12 +65,13 @@ pout(outlet_num) = p_out;
 
 % 上边已经处理完了逐管束的进出口信息，现在需要内部划分多的控制体来单独计算换热和压力损失
 % 内部的处理为，划分控制体数量*管束的矩阵
-CV = linspace(0,1,CV_num);
-hin_CV = hin + (hout - hin)*((CV_num-1)/CV_num)*CV;
-hout_CV = hin + (hout - hin)*(1/CV_num) + (hout - hin)*((CV_num-1)/CV_num)*CV;
+CV = linspace(0,1,CV_num+1);
+hin_CV = hin + (hout - hin)*CV(1:end-1);
+%hout_CV = hin + (hout - hin)*(1/CV_num) + (hout - hin)*((CV_num-1)/CV_num)*CV;
+hout_CV = hin + (hout - hin)*CV(2:end);
 
-pin_CV = pin + (pout - pin)*((CV_num-1)/CV_num)*CV;
-pout_CV = pin + (pout - pin)*(1/CV_num) + (pout - pin)*((CV_num-1)/CV_num)*CV;
+pin_CV = pin + (pout - pin)*CV(1:end-1);
+pout_CV = pin + (pout - pin)*CV(2:end);
 
 h_CV = (hin_CV + hout_CV)/2;
 p_CV = (pin_CV + pout_CV)/2;
@@ -109,11 +110,11 @@ f_CV = (-1.8*log10(6.9./Re_CV+(r/3.7)^1.11)).^(-2);
 
 % 计算压差
 dp_f = f*L.*mdot.^2./(2*Dtube*D*S^2);
-dp_v = 16*mdot.^2/(pi*D)^2.^(1./Dout - 1./Din);
+dp_v = 16*mdot.^2/(pi^2*D^4).*(1./Dout - 1./Din);
 dp_1 = dp_f + dp_v;
 
 dp_f_CV = f_CV*L/CV_num.*mdot_CV.^2./(2*Dtube_CV*D*S^2);
-dp_v_CV = 16*mdot_CV.^2/(pi*D)^2.*(1./Dout_CV - 1./Din_CV);
+dp_v_CV = 16*mdot_CV.^2/(pi^2*D^4).*(1./Dout_CV - 1./Din_CV);
 dp_2 = sum(dp_f_CV + dp_v_CV,2);
 
 
@@ -148,26 +149,26 @@ dT2_CV = Tout_CV - T_wall;
 % 初始化温差向量
 dT = zeros(size(dT1));
 dT_CV = zeros(size(dT1_CV));
-
-% 情况1：同号且不相等 → 标准对数平均
-mask_normal = (dT1 .* dT2 > 0) & (abs(dT1 - dT2) >= 1e-6);
-dT(mask_normal) = (dT1(mask_normal) - dT2(mask_normal)) ./ log(dT1(mask_normal)./dT2(mask_normal));
-
-mask_normal_CV = (dT1_CV .* dT2_CV > 0) & (abs(dT1_CV - dT2_CV) >= 1e-6);
-dT_CV(mask_normal_CV) = (dT1_CV(mask_normal_CV) - dT2_CV(mask_normal_CV)) ./ log(dT1_CV(mask_normal_CV)./dT2_CV(mask_normal_CV));
-% 情况2：同号但几乎相等 → 算术平均
-mask_equal = (dT1 .* dT2 > 0) & (abs(dT1 - dT2) < 1e-6);
-dT(mask_equal) = (dT1(mask_equal) + dT2(mask_equal)) / 2;
-
-mask_equal_CV = ((dT1_CV .* dT2_CV > 0) & (abs(dT1_CV - dT2_CV) < 1e-6))|dT1_CV .* dT2_CV <= 0;
-dT_CV(mask_equal_CV) = (dT1_CV(mask_equal_CV) + dT2_CV(mask_equal_CV)) / 2;
-
-% 情况3：异号（温度交叉）→ 使用算术平均，并可根据需要给出警告
-mask_cross = dT1 .* dT2 <= 0;
-if any(mask_cross)
-    warning('管段 %s 发生温度交叉，使用算术平均温差。', num2str(find(mask_cross)'));
-    dT(mask_cross) = (dT1(mask_cross) + dT2(mask_cross)) / 2;
-end
+dT_CV = Ttube_CV - T_wall;
+% % 情况1：同号且不相等 → 标准对数平均
+% mask_normal = (dT1 .* dT2 > 0) & (abs(dT1 - dT2) >= 1e-6);
+% dT(mask_normal) = (dT1(mask_normal) - dT2(mask_normal)) ./ log(dT1(mask_normal)./dT2(mask_normal));
+% 
+% mask_normal_CV = (dT1_CV .* dT2_CV > 0) & (abs(dT1_CV - dT2_CV) >= 1e-6);
+% dT_CV(mask_normal_CV) = (dT1_CV(mask_normal_CV) - dT2_CV(mask_normal_CV)) ./ log(dT1_CV(mask_normal_CV)./dT2_CV(mask_normal_CV));
+% % 情况2：同号但几乎相等 → 算术平均
+% mask_equal = (dT1 .* dT2 > 0) & (abs(dT1 - dT2) < 1e-6);
+% dT(mask_equal) = (dT1(mask_equal) + dT2(mask_equal)) / 2;
+% 
+% mask_equal_CV = ((dT1_CV .* dT2_CV > 0) & (abs(dT1_CV - dT2_CV) < 1e-6))|dT1_CV .* dT2_CV <= 0;
+% dT_CV(mask_equal_CV) = (dT1_CV(mask_equal_CV) + dT2_CV(mask_equal_CV)) / 2;
+% 
+% % 情况3：异号（温度交叉）→ 使用算术平均，并可根据需要给出警告
+% mask_cross = dT1 .* dT2 <= 0;
+% if any(mask_cross)
+%     warning('管段 %s 发生温度交叉，使用算术平均温差。', num2str(find(mask_cross)'));
+%     dT(mask_cross) = (dT1(mask_cross) + dT2(mask_cross)) / 2;
+% end
 
 %dT = ((Tin - T_wall)- (Tout - T_wall))./ log((Tin - T_wall)./(Tout - T_wall));
 Q_1 = dT.*h_cal*A;
@@ -181,7 +182,7 @@ Q_2 = sum(dT_CV.*h_cal_CV*A/CV_num,2);
 F(1:con_num) = TC_matrix*mdot/mdot_in;
 F(con_num+1) = (mdot_in + inlet_matrix'*mdot)/mdot_in;
 % 根据节点写压力-流量关系式
-F(con_num+2:con_num+Tube_num+1) = (dp_2 - (pin - pout)*1e6)/(0.005*1e6);
+F(con_num+2:con_num+Tube_num+1) = (dp_2 - (pin - pout)*1e6)/(0.05*1e6);
 % 空气侧和制冷剂侧的能量守恒
 % 制冷剂侧的能量守恒
 F(con_num+Tube_num+2:con_num+2*Tube_num+1) = (mdot.*(hin - hout) - Q_2/1e3)/(mdot_in*h_inlet);

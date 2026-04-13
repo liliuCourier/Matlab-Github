@@ -112,11 +112,11 @@ f_CV = (-1.8*log10(6.9./Re_CV+(r/3.7)^1.11)).^(-2);
 
 % 计算压差
 dp_f = f*L.*mdot.^2./(2*Dtube*D*S^2);
-dp_v = 16*mdot.^2/(pi*D)^2.^(1./Dout - 1./Din);
+dp_v = 16*mdot.^2/(pi^2*D^4).*(1./Dout - 1./Din);
 dp_1 = dp_f + dp_v;
 
 dp_f_CV = f_CV*L/CV_num.*mdot_CV.^2./(2*Dtube_CV*D*S^2);
-dp_v_CV = 16*mdot_CV.^2/(pi*D)^2.*(1./Dout_CV - 1./Din_CV);
+dp_v_CV = 16*mdot_CV.^2/(pi^2*D^4).*(1./Dout_CV - 1./Din_CV);
 dp_2 = sum(dp_f_CV + dp_v_CV,2);
 
 % 单相采用Gnielinski公式
@@ -150,26 +150,26 @@ dT2_CV = Tout_CV - T_wall;
 % 初始化温差向量
 dT = zeros(size(dT1));
 dT_CV = zeros(size(dT1_CV));
-
-% 情况1：同号且不相等 → 标准对数平均
-mask_normal = (dT1 .* dT2 > 0) & (abs(dT1 - dT2) >= 1e-6);
-dT(mask_normal) = (dT1(mask_normal) - dT2(mask_normal)) ./ log(dT1(mask_normal)./dT2(mask_normal));
-
-mask_normal_CV = (dT1_CV .* dT2_CV > 0) & (abs(dT1_CV - dT2_CV) >= 1e-6);
-dT_CV(mask_normal_CV) = (dT1_CV(mask_normal_CV) - dT2_CV(mask_normal_CV)) ./ log(dT1_CV(mask_normal_CV)./dT2_CV(mask_normal_CV));
-% 情况2：同号但几乎相等 → 算术平均
-mask_equal = (dT1 .* dT2 > 0) & (abs(dT1 - dT2) < 1e-6);
-dT(mask_equal) = (dT1(mask_equal) + dT2(mask_equal)) / 2;
-
-mask_equal_CV = ((dT1_CV .* dT2_CV > 0) & (abs(dT1_CV - dT2_CV) < 1e-6))|dT1_CV .* dT2_CV <= 0;
-dT_CV(mask_equal_CV) = (dT1_CV(mask_equal_CV) + dT2_CV(mask_equal_CV)) / 2;
-
-% 情况3：异号（温度交叉）→ 使用算术平均，并可根据需要给出警告
-mask_cross = dT1 .* dT2 <= 0;
-if any(mask_cross)
-    warning('管段 %s 发生温度交叉，使用算术平均温差。', num2str(find(mask_cross)'));
-    dT(mask_cross) = (dT1(mask_cross) + dT2(mask_cross)) / 2;
-end
+dT_CV = Ttube_CV - T_wall;
+% % 情况1：同号且不相等 → 标准对数平均
+% mask_normal = (dT1 .* dT2 > 0) & (abs(dT1 - dT2) >= 1e-6);
+% dT(mask_normal) = (dT1(mask_normal) - dT2(mask_normal)) ./ log(dT1(mask_normal)./dT2(mask_normal));
+% 
+% mask_normal_CV = (dT1_CV .* dT2_CV > 0) & (abs(dT1_CV - dT2_CV) >= 1e-6);
+% dT_CV(mask_normal_CV) = (dT1_CV(mask_normal_CV) - dT2_CV(mask_normal_CV)) ./ log(dT1_CV(mask_normal_CV)./dT2_CV(mask_normal_CV));
+% % 情况2：同号但几乎相等 → 算术平均
+% mask_equal = (dT1 .* dT2 > 0) & (abs(dT1 - dT2) < 1e-6);
+% dT(mask_equal) = (dT1(mask_equal) + dT2(mask_equal)) / 2;
+% 
+% mask_equal_CV = ((dT1_CV .* dT2_CV > 0) & (abs(dT1_CV - dT2_CV) < 1e-6))|dT1_CV .* dT2_CV <= 0;
+% dT_CV(mask_equal_CV) = (dT1_CV(mask_equal_CV) + dT2_CV(mask_equal_CV)) / 2;
+% 
+% % 情况3：异号（温度交叉）→ 使用算术平均，并可根据需要给出警告
+% mask_cross = dT1 .* dT2 <= 0;
+% if any(mask_cross)
+%     warning('管段 %s 发生温度交叉，使用算术平均温差。', num2str(find(mask_cross)'));
+%     dT(mask_cross) = (dT1(mask_cross) + dT2(mask_cross)) / 2;
+% end
 
 %dT = ((Tin - T_wall)- (Tout - T_wall))./ log((Tin - T_wall)./(Tout - T_wall));
 Q_1 = dT.*h_cal*A;
