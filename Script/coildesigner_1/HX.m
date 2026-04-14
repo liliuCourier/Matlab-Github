@@ -123,10 +123,23 @@ h_2P = ksatliq.*Nu_2P/D;
 Nu_2P_CV = 0.05*(((1-xtube_CV+xtube_CV.*sqrt(vsatvap_CV./vsatliq_CV)).*Re_satliq_CV).^0.8).*Prsatliq_CV.^0.33;
 h_2P_CV = ksatliq_CV.*Nu_2P_CV/D;
 
-
+transition_range = 0.1;
 h_cal = h_1P.*(1 - isTP) + h_2P.*isTP;
 
-h_cal_CV = h_1P_CV.*(1 - isTP_CV) + h_2P_CV.*isTP_CV;
+
+% 液相到两相混合
+w = min(max(xtube_CV(:) / transition_range, 0), 1);   % 0→1 的权重
+h = h_1P_CV(:) .* (1 - w) + h_2P_CV(:) .* w;  % 线性混合（可改为 Hermite）
+
+% 两相到汽相混合
+w2 = min(max((xtube_CV(:) - (1 - transition_range)) / transition_range, 0), 1);
+h_cal_CV = h .* (1 - w2) + h_1P_CV(:) .* w2;
+
+
+%h_cal_CV = interp2(interp2(h_1P_CV(:),h_2P_CV(:),0,transition_range,xtube_CV),h_1P_CV(:),1-transition_range,1,xtube_CV);
+       
+
+%h_cal_CV = h_1P_CV.*(1 - isTP_CV) + h_2P_CV.*isTP_CV;
 % 最开始先进行流动损失的检验，如果压力计算是正确的，再进行后续的和换热的耦合
 % 从目前的结果来看，似乎压力损失是还不错的，准备开始将换热侧耦合进去
 % 从绝热——初步耦合恒温壁面
@@ -138,10 +151,10 @@ dT2 = Tout - T_wall;
 dT1_CV = Tin_CV - T_wall;
 dT2_CV = Tout_CV - T_wall;
 % 初始化温差向量
-dT = zeros(size(dT1));
-dT_CV = zeros(size(dT1_CV));
+%dT = zeros(size(dT1));
+%dT_CV = zeros(size(dT1_CV));
 dT_CV = Ttube_CV - T_wall;
-% % 情况1：同号且不相等 → 标准对数平均
+% 情况1：同号且不相等 → 标准对数平均
 % mask_normal = (dT1 .* dT2 > 0) & (abs(dT1 - dT2) >= 1e-6);
 % dT(mask_normal) = (dT1(mask_normal) - dT2(mask_normal)) ./ log(dT1(mask_normal)./dT2(mask_normal));
 % 
@@ -162,8 +175,8 @@ dT_CV = Ttube_CV - T_wall;
 % end
 
 %dT = ((Tin - T_wall)- (Tout - T_wall))./ log((Tin - T_wall)./(Tout - T_wall));
-Q_1 = dT.*h_cal*A;
-Q_2 = dT_CV.*h_cal_CV*A/CV_num;
+%Q_1 = dT.*h_cal*A;
+Q_2 = dT_CV(:).*h_cal_CV*A/CV_num;
 % 默认Q为管道向外界的换热
 %Q = zeros(Tube_num,1);
 
@@ -175,13 +188,11 @@ F(con_num+1) = (mdot_in + inlet_matrix'*mdot)/mdot_in;
 % 根据节点写压力-流量关系式
 F(con_num+2:con_num+Tube_num*CV_num+1) = (dp_2(:) - (pin_CV(:) - pout_CV(:))*1e6)/(0.001*1e6);
 % 能量守恒
-F(con_num+Tube_num*CV_num+2:con_num+2*Tube_num*CV_num+1) = (mdot_CV(:).*(hin_CV(:) - hout_CV(:)) - Q_2(:)/1e3)/(mdot_in*h_inlet/CV_num);
+F(con_num+Tube_num*CV_num+2:con_num+2*Tube_num*CV_num+1) = (mdot_CV(:).*(hin_CV(:) - hout_CV(:)) - Q_2/1e3)/(mdot_in*h_inlet/CV_num);
 
 % 检验，一旦出现NaN和inf就会停止程序，方便后续调试哪里出现了问题
 if any(~isfinite(F)) || ~isreal(F)
     fprintf('!!! Invalid residual at iteration !!!\n');
-    fprintf('Check variables: mdot(1)=%g, Re(1)=%g, f(1)=%g, dT(1)=%g\n', ...
-            mdot(1), Re(1), f(1), dT(1));
     keyboard;
 end
 

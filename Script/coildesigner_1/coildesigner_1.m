@@ -39,12 +39,12 @@ con_num = size(TC_matrix,1);
 h_inlet = 300;
 mdot_in = 20e-3;
 p_in = 1;
-T_wall = 320;
+T_wall = 332;
 
-CV_num = 20;
+CV_num = 10;
 
 %GeoConditionStrcut;
-L = 0.5;
+L = 2;
 D = 5e-3;
 r = 1e-6;
 GeoCondition = struct("L",L,...
@@ -52,22 +52,24 @@ GeoCondition = struct("L",L,...
     "r",r);
 
 mdot_init = [mdot_in/2;mdot_in/2;mdot_in;mdot_in;mdot_in/2;mdot_in/2;mdot_in;mdot_in];
-hout_init = 400*ones(CV_num*Tube_num,1);
+hout_init = 310*ones(CV_num*Tube_num,1);
 p_inside_init = 0.99*ones((CV_num-1)*Tube_num,1);
 p_con_init = 0.99*ones(con_num,1);
-pout = 0.99;
+pout = 0.95;
 
 % 组装初始条件_列向量
 x0 = [mdot_init;hout_init;p_inside_init;p_con_init;pout];
 
 options = optimoptions('fsolve','Display','iter','Algorithm','levenberg-marquardt','FunctionTolerance',1e-6,'MaxFunctionEvaluations',5e4,'StepTolerance',1e-8);
-xout = fsolve(@(x) HX(x,TC_matrix,h_inlet,mdot_in,p_in,T_wall,GeoCondition,CV_num),x0,options);
-%[Q_1,Q_2,hin,hout,pin,pout,p_tube,Ttube,h_tube,mdot,dp_1,dp_2] = Recal(xout,TC_matrix,h_inlet,p_in,T_wall,GeoCondition,CV_num);
+xout = fsolve(@(x) HX(x,TC_matrix,h_inlet,mdot_in,p_in,T_wall,GeoCondition,CV_num),xout,options);
 
-%HX(xout,TC_matrix,h_inlet,mdot_in,p_in,T_wall,GeoCondition,CV_num)
+[Q_1,Q_2,hin_CV,hout_CV,pin_CV,pout_CV,Ttube_CV,mdot,dp_1,dp_2] = Recal(xout,TC_matrix,h_inlet,p_in,T_wall,GeoCondition,CV_num);
+% HX(xout,TC_matrix,h_inlet,mdot_in,p_in,T_wall,GeoCondition,CV_num)
 
 %%
-
+p_out_1 = pout_CV(:);
+p_out = p_out_1(CV_num:CV_num:Tube_num*CV_num);
+p_con = xout(end-con_num:end);
 % 后处理
 % f1 = "out.simlog.Pipe" + num2str([9:17]') + ".mdot_B.series";
 % f2 = "out.simlog.Pipe" + num2str([9:17]') + ".B.p.series";
@@ -115,9 +117,9 @@ aa = [1,5,2,3,7,4,8];
 f2 = "connection" + num2str([1:6]');
 f1 = [f2;"out"];
 nexttile
-bar(f1,[Sim_p(aa,end),xout(17:23)])
+bar(f1,[Sim_p(aa,end),p_con])
 grid on 
-ylim([0.99,1])
+%ylim([0.99,1])
 title("Pressure of connect outlet")
 ylabel('p/MPa','FontName','Times New Roman','FontSize',15)
 legend(["Simscape","Script"])
