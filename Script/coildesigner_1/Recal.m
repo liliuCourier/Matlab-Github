@@ -34,7 +34,7 @@ judge_port = sum(TC_matrix,1);
 
 % 因此获取了进出管道的端口号——一个行向量，过只用在索引中，所以行列无关紧要
 inlet_num = find(judge_port == -1);
-outlet_num = judge_port == 1;
+outlet_num = find(judge_port == 1);
 
 % 进口管道矩阵，其中非进口被置零
 inlet_matrix = zeros(Tube_num,1);

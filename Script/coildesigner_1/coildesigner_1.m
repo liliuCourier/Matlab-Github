@@ -23,51 +23,48 @@
 % k_liq = griddedInterpolant(x3,x4,R_prop.k_liq,"linear","linear");
 
 %%
-tic
 clc
+
 TC_matrix = [-1 1 0 0 0 0 0 0;
-    0 0 0 0 -1 1 0 0 ;
-    0 -1 1 0 0 -1 0 0 ;
-    0 0 -1 0 0 0 1 0 ;
-    0 0 0 1 0 0 -1 0 ;
-    0 0 0 -1 0 0 0 1];
+            0 0 0 0 -1 1 0 0 ;
+            0 -1 1 0 0 -1 0 0 ;
+            0 0 -1 0 0 0 1 0 ;
+            0 0 0 1 0 0 -1 0 ;
+            0 0 0 -1 0 0 0 1];
+
+Tube_num = size(TC_matrix,2);
+con_num = size(TC_matrix,1);
 
 % 边界条件-boundary condition——后续要把边界条件写成结构体
 h_inlet = 300;
-mdot_in = 10e-3;
+mdot_in = 20e-3;
 p_in = 1;
-T_wall = 300;
+T_wall = 320;
 
-CV_num = 50;
-%boundaryStrcut;
-% 管长
-L = 0.6;
-% 管直径
+CV_num = 20;
+
+%GeoConditionStrcut;
+L = 0.5;
 D = 5e-3;
-% 表面粗糙度
 r = 1e-6;
-
 GeoCondition = struct("L",L,...
     "D",D,...
     "r",r);
 
-% 初始条件-initial condition——同理也要把初始条件写成结构体
-% 初始条件为列向量
 mdot_init = [mdot_in/2;mdot_in/2;mdot_in;mdot_in;mdot_in/2;mdot_in/2;mdot_in;mdot_in];
-h_out_init = 260*ones(8,1);%[310;330;350;400;310;330;380;430];%310*ones(8,1);%[280;271;265;255;280;272;260;250];[310;320;325;327;310;320;326;328]
-p_con = [0.99;0.99;0.98;0.97;0.96;0.95];
-p_out_init = 0.94;
+hout_init = 400*ones(CV_num*Tube_num,1);
+p_inside_init = 0.99*ones((CV_num-1)*Tube_num,1);
+p_con_init = 0.99*ones(con_num,1);
+pout = 0.99;
 
 % 组装初始条件_列向量
-x0 = [mdot_init;h_out_init;p_con;p_out_init];
+x0 = [mdot_init;hout_init;p_inside_init;p_con_init;pout];
 
-options = optimoptions('fsolve','Display','iter','Algorithm','levenberg-marquardt','FunctionTolerance',1e-6,'MaxFunctionEvaluations',5e3,'StepTolerance',1e-8);
-%k_out = fsolve(@(k)costFun(k,T_Lf_fast_interp,T_out,Lf_out,T_pc_start,T_pc_end),k0,options);
+options = optimoptions('fsolve','Display','iter','Algorithm','levenberg-marquardt','FunctionTolerance',1e-6,'MaxFunctionEvaluations',5e4,'StepTolerance',1e-8);
 xout = fsolve(@(x) HX(x,TC_matrix,h_inlet,mdot_in,p_in,T_wall,GeoCondition,CV_num),x0,options);
+%[Q_1,Q_2,hin,hout,pin,pout,p_tube,Ttube,h_tube,mdot,dp_1,dp_2] = Recal(xout,TC_matrix,h_inlet,p_in,T_wall,GeoCondition,CV_num);
 
-[Q_1,Q_2,hin,hout,pin,pout,p_tube,Ttube,h_tube,mdot,dp_1,dp_2] = Recal(xout,TC_matrix,h_inlet,p_in,T_wall,GeoCondition,CV_num);
-
-toc
+%HX(xout,TC_matrix,h_inlet,mdot_in,p_in,T_wall,GeoCondition,CV_num)
 
 %%
 

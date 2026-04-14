@@ -1,30 +1,25 @@
 function F = HX(x0,TC_matrix,h_inlet,mdot_in,p_in,T_wall,GeoConditon,CV_num)
 
-% 获取管数量和节点数量
 Tube_num = size(TC_matrix,2);
 con_num = size(TC_matrix,1);
 
-% 管长
 L = GeoConditon.L;
-% 管直径
 D = GeoConditon.D;
-% 表面粗糙度
 r = GeoConditon.r;
-% 管道换热面积
+
 A = pi*D*L;
-% 横截面积
 S = pi*D^2/4;
 
-% 内部控制体数量划分：
-%CV_num = 5;
+mdot = x0(1:Tube_num);                              
+hout_init = x0(Tube_num+1:Tube_num+CV_num*Tube_num);                  
+pinside_init = x0(Tube_num+CV_num*Tube_num + 1:Tube_num+CV_num*Tube_num + (CV_num-1)*Tube_num);    
+p_con =  x0(Tube_num+CV_num*Tube_num + (CV_num-1)*Tube_num + 1:end-1);  
+p_out = x0(end);
 
-% 输入的x0为行向量——n*1
-% 取出初始条件：
-mdot = x0(1:Tube_num);                              % 质量流量初始条件      列向量——Tube_num * 1
-hout = x0(Tube_num+1:2*Tube_num);                  % 管控制体比焓初始条件  列向量——Tube_num * 1
-p_con = x0(2*Tube_num + 1:2*Tube_num + con_num);    % 节点压力初始条件      列向量——con_num * 1
-p_out = x0(end);                                    % 出口压力初始条件      double值
-
+pinside = reshape(pinside_init,CV_num-1,Tube_num);
+hout_CV = reshape(hout_init,CV_num,Tube_num);
+Pipe_out_index = CV_num:CV_num:CV_num*Tube_num;
+hout = hout_init(Pipe_out_index);
 %% 处理管道-节点连接矩阵
 % 根据连接矩阵找到进口
 % judge_port将每列进行加和，其中完全抵消的代表管前后均有节点，因此不是进出口
@@ -48,7 +43,6 @@ IO_outlet = zeros(size(TC_matrix));
 IO_inlet(TC_matrix == 1) = 1;
 IO_outlet(TC_matrix == -1) = -1;
 
-
 %% 处理中间参数
 % 计算中间参数：hin、pin、pout,采用迎风格式，认为出口焓为管道焓，这里估计是误差的由来，出口压力用的节点压力但是出口焓用的管道焓
 % 根据节点写hin中间变量——节点下游的入口hin等于上游掺杂焓
@@ -65,13 +59,10 @@ pout(outlet_num) = p_out;
 
 % 上边已经处理完了逐管束的进出口信息，现在需要内部划分多的控制体来单独计算换热和压力损失
 % 内部的处理为，划分控制体数量*管束的矩阵
-CV = linspace(0,1,CV_num+1);
-hin_CV = hin + (hout - hin)*CV(1:end-1);
-%hout_CV = hin + (hout - hin)*(1/CV_num) + (hout - hin)*((CV_num-1)/CV_num)*CV;
-hout_CV = hin + (hout - hin)*CV(2:end);
-
-pin_CV = pin + (pout - pin)*CV(1:end-1);
-pout_CV = pin + (pout - pin)*CV(2:end);
+hin_CV = [hin';hout_CV(1:end-1,:)]';
+hout_CV = hout_CV';
+pin_CV = [pin';pinside]';
+pout_CV = [pinside;pout']';
 
 h_CV = (hin_CV + hout_CV)/2;
 p_CV = (pin_CV + pout_CV)/2;
@@ -98,11 +89,11 @@ veloctiy = 0.5*(mdot./Din+mdot./Dout)/S;
 veloctiy_CV = 0.5*(mdot_CV./Din_CV+mdot_CV./Dout_CV)/S;
 
 % 计算每根管的Re
-Re = veloctiy*D./(Nutube*1e-6);
-Re_satliq = mdot.*vsatliq*D./(S*Nusatliq*1e-6);
+Re = abs(veloctiy)*D./(Nutube*1e-6);
+Re_satliq = abs(mdot).*vsatliq*D./(S*Nusatliq*1e-6);
 
-Re_CV = veloctiy_CV*D./(Nutube_CV*1e-6);
-Re_satliq_CV = mdot_CV.*vsatliq_CV*D./(S*Nusatliq_CV*1e-6);
+Re_CV = abs(veloctiy_CV)*D./(Nutube_CV*1e-6);
+Re_satliq_CV = abs(mdot_CV).*vsatliq_CV*D./(S*Nusatliq_CV*1e-6);
 
 % 计算管Re
 f = (-1.8*log10(6.9./Re+(r/3.7)^1.11)).^(-2);
@@ -115,7 +106,7 @@ dp_1 = dp_f + dp_v;
 
 dp_f_CV = f_CV*L/CV_num.*mdot_CV.^2./(2*Dtube_CV*D*S^2);
 dp_v_CV = 16*mdot_CV.^2/(pi^2*D^4).*(1./Dout_CV - 1./Din_CV);
-dp_2 = sum(dp_f_CV + dp_v_CV,2);
+dp_2 = (dp_f_CV + dp_v_CV);
 
 
 % 单相采用Gnielinski公式
@@ -172,7 +163,7 @@ dT_CV = Ttube_CV - T_wall;
 
 %dT = ((Tin - T_wall)- (Tout - T_wall))./ log((Tin - T_wall)./(Tout - T_wall));
 Q_1 = dT.*h_cal*A;
-Q_2 = sum(dT_CV.*h_cal_CV*A/CV_num,2);
+Q_2 = dT_CV.*h_cal_CV*A/CV_num;
 % 默认Q为管道向外界的换热
 %Q = zeros(Tube_num,1);
 
@@ -182,10 +173,9 @@ Q_2 = sum(dT_CV.*h_cal_CV*A/CV_num,2);
 F(1:con_num) = TC_matrix*mdot/mdot_in;
 F(con_num+1) = (mdot_in + inlet_matrix'*mdot)/mdot_in;
 % 根据节点写压力-流量关系式
-F(con_num+2:con_num+Tube_num+1) = (dp_2 - (pin - pout)*1e6)/(0.05*1e6);
-% 空气侧和制冷剂侧的能量守恒
-% 制冷剂侧的能量守恒
-F(con_num+Tube_num+2:con_num+2*Tube_num+1) = (mdot.*(hin - hout) - Q_2/1e3)/(mdot_in*h_inlet);
+F(con_num+2:con_num+Tube_num*CV_num+1) = (dp_2(:) - (pin_CV(:) - pout_CV(:))*1e6)/(0.001*1e6);
+% 能量守恒
+F(con_num+Tube_num*CV_num+2:con_num+2*Tube_num*CV_num+1) = (mdot_CV(:).*(hin_CV(:) - hout_CV(:)) - Q_2(:)/1e3)/(mdot_in*h_inlet/CV_num);
 
 % 检验，一旦出现NaN和inf就会停止程序，方便后续调试哪里出现了问题
 if any(~isfinite(F)) || ~isreal(F)
