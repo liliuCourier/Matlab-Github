@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Info File="Script/coildesigner_1/StartFile_R134aProp.m" GroupUUID="default" Icon="" Name="StartFile_R134aProp" Type="StartUp" Visible="0">
+    <Extension Name="StartUpPrev" Value="HEAD"/>
+</Info>

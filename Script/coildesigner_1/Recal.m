@@ -1,5 +1,5 @@
 % 后处理函数
-function [Q_1,Q_2,hin_CV,hout_CV,pin_CV,pout_CV,Ttube_CV,mdot,dp_1,dp_2] = Recal(x0,TC_matrix,h_inlet,p_in,T_wall,GeoCondition,CV_num)
+function [Q_1,Q_2,hin_CV,hout_CV,pin_CV,pout_CV,Ttube_CV,mdot,dp_1,dp_2] = Recal(x0,TC_matrix,h_inlet,p_inlet,T_wall,GeoCondition,CV_num)
 
 Tube_num = size(TC_matrix,2);
 con_num = size(TC_matrix,1);
@@ -15,7 +15,7 @@ mdot = x0(1:Tube_num);
 hout_init = x0(Tube_num+1:Tube_num+CV_num*Tube_num);                  
 pinside_init = x0(Tube_num+CV_num*Tube_num + 1:Tube_num+CV_num*Tube_num + (CV_num-1)*Tube_num);    
 p_con =  x0(Tube_num+CV_num*Tube_num + (CV_num-1)*Tube_num + 1:end-1);  
-p_out = x0(end);
+p_outlet = x0(end);
 
 pinside = reshape(pinside_init,CV_num-1,Tube_num);
 hout_CV = reshape(hout_init,CV_num,Tube_num);
@@ -41,9 +41,9 @@ hin(inlet_num) = h_inlet;
 hin = min(hin,500);
 
 pin = (p_con'*IO_inlet)';
-pin(inlet_num)= p_in;
+pin(inlet_num)= p_inlet;
 pout = (-p_con'*(IO_outlet))';
-pout(outlet_num) = p_out;
+pout(outlet_num) = p_outlet;
 
 hin_CV = [hin';hout_CV(1:end-1,:)]';
 hout_CV = hout_CV';

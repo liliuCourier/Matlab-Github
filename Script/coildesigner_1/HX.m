@@ -1,11 +1,11 @@
-function F = HX(x0,TC_matrix,h_inlet,mdot_in,p_in,T_wall,GeoConditon,CV_num)
+function F = HX(x0,TC_matrix,h_inlet,mdot_inlet,p_inlet,T_wall,GeoCondition,CV_num)
 
 Tube_num = size(TC_matrix,2);
 con_num = size(TC_matrix,1);
 
-L = GeoConditon.L;
-D = GeoConditon.D;
-r = GeoConditon.r;
+L = GeoCondition.L;
+D = GeoCondition.D;
+r = GeoCondition.r;
 
 A = pi*D*L;
 S = pi*D^2/4;
@@ -14,7 +14,7 @@ mdot = x0(1:Tube_num);
 hout_init = x0(Tube_num+1:Tube_num+CV_num*Tube_num);                  
 pinside_init = x0(Tube_num+CV_num*Tube_num + 1:Tube_num+CV_num*Tube_num + (CV_num-1)*Tube_num);    
 p_con =  x0(Tube_num+CV_num*Tube_num + (CV_num-1)*Tube_num + 1:end-1);  
-p_out = x0(end);
+p_outlet = x0(end);
 
 pinside = reshape(pinside_init,CV_num-1,Tube_num);
 hout_CV = reshape(hout_init,CV_num,Tube_num);
@@ -53,9 +53,9 @@ hin = min(hin,500);
 
 % 管道的进口压力为1的节点压力——出口压力为-1的节点压力，需要添加-1，因为IO_outlet元素均为-1，进口管为边界条件和出口管为初始条件
 pin = (p_con'*IO_inlet)';
-pin(inlet_num)= p_in;
+pin(inlet_num)= p_inlet;
 pout = (-p_con'*(IO_outlet))';
-pout(outlet_num) = p_out;
+pout(outlet_num) = p_outlet;
 
 % 上边已经处理完了逐管束的进出口信息，现在需要内部划分多的控制体来单独计算换热和压力损失
 % 内部的处理为，划分控制体数量*管束的矩阵
@@ -110,10 +110,10 @@ dp_2 = (dp_f_CV + dp_v_CV);
 
 
 % 单相采用Gnielinski公式
-Nu_1P = (f/8.*(Re - 1000).*Prtube)./(1+12.7*sqrt(f/8).*(Prtube.^(2/3)-1));
+Nu_1P = (f/8.*max(Re - 1000,0).*Prtube)./(1+12.7*sqrt(f/8).*(Prtube.^(2/3)-1));
 h_1P = ktube.*Nu_1P/D;
 
-Nu_1P_CV = (f_CV/8.*(Re_CV - 1000).*Prtube_CV)./(1+12.7*sqrt(f_CV/8).*(Prtube_CV.^(2/3)-1));
+Nu_1P_CV = (f_CV/8.*max(Re_CV - 1000,0).*Prtube_CV)./(1+12.7*sqrt(f_CV/8).*(Prtube_CV.^(2/3)-1));
 h_1P_CV = ktube_CV.*Nu_1P_CV/D;
 
 % 两相采用Cavallini and Zecchin correlation:
@@ -183,12 +183,12 @@ Q_2 = dT_CV(:).*h_cal_CV*A/CV_num;
 %% 残差输出
 % 残差无量纲化/或是残差归一化，不然压力可比质量流量大太多了
 % 根据节点写质量守恒方程——代数方程限制
-F(1:con_num) = TC_matrix*mdot/mdot_in;
-F(con_num+1) = (mdot_in + inlet_matrix'*mdot)/mdot_in;
+F(1:con_num) = TC_matrix*mdot/mdot_inlet;
+F(con_num+1) = (mdot_inlet + inlet_matrix'*mdot)/mdot_inlet;
 % 根据节点写压力-流量关系式
 F(con_num+2:con_num+Tube_num*CV_num+1) = (dp_2(:) - (pin_CV(:) - pout_CV(:))*1e6)/(0.001*1e6);
 % 能量守恒
-F(con_num+Tube_num*CV_num+2:con_num+2*Tube_num*CV_num+1) = (mdot_CV(:).*(hin_CV(:) - hout_CV(:)) - Q_2/1e3)/(mdot_in*h_inlet/CV_num);
+F(con_num+Tube_num*CV_num+2:con_num+2*Tube_num*CV_num+1) = (mdot_CV(:).*(hin_CV(:) - hout_CV(:)) - Q_2/1e3)/(mdot_inlet*h_inlet/CV_num);
 
 % 检验，一旦出现NaN和inf就会停止程序，方便后续调试哪里出现了问题
 if any(~isfinite(F)) || ~isreal(F)
