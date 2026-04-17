@@ -2,7 +2,7 @@
 % 将空气侧的压力损失和换热先剥离出来，在检验完成后和coildesigner_1合体
 % 这边的检验可以采用simscape中的Pipe(2P)检验管内流动的计算
 
-%% 物性调用：
+% 物性调用：
 % clc
 % Ra = 287.047;       % J/K kg
 % Rw = 461.523;       % J/K kg
@@ -18,7 +18,7 @@
 % 
 % global hw hvaporize visw kw Prw hair visair kair Prair psatvap
 % 
-% psatvap = griddedInterpolant(P_vap_sat,T,"linear","linear");
+% psatvap = griddedInterpolant(T,P_vap_sat,"linear","linear");
 % 
 % [x1,x2] = ndgrid(T,P_vap_sat);
 % hw = griddedInterpolant(x1,x2,h_w,"linear","linear");
@@ -44,14 +44,14 @@ fi_inlet = 0.5;
 p_wsat_inlet_init = psatvap(T_inlet);  
 p_w_inlet = p_wsat_inlet_init*fi_inlet;
 W_inlet = (Ra/Rw)*(p_w_inlet/(p_inlet*1e6 - p_w_inlet));
-x_inlet = W_inlet/(1+W_inlet)
+x_inlet = W_inlet/(1+W_inlet);
 %x_inlet = 0.0007;
 
-T_wall = 310;
+T_wall = 300;
 %CV_num = 10;
 
 %GeoConditionStrcut;
-L = 0.1;
+L = 0.24;
 D = 5e-3;
 r = 1e-6;
 GeoCondition = struct("L",L,...
@@ -80,35 +80,39 @@ x_w_out_init = W_out_init./(1+W_out_init);                                      
 x0 = [mdot_init;Tout_init;x_w_out_init;pinside_init;p_outlet];
 
 options = optimoptions('fsolve','Display','iter','Algorithm','levenberg-marquardt','FunctionTolerance',1e-6,'MaxFunctionEvaluations',5e4,'StepTolerance',1e-8);
-xout = fsolve(@(x) HX_air(x,T_inlet,mdot_inlet,p_inlet,x_inlet,GeoCondition,T_wall),x0,options);
+xout = fsolve(@(x) HX_air(x,T_inlet,mdot_inlet,p_inlet,x_inlet,GeoCondition,T_wall),xout,options);
 
 %%
-[pin,pout,mdot,Q] = Recal_air(xout,T_inlet,mdot_inlet,p_inlet,x_inlet,GeoCondition,T_wall);
+[fiin,fiout,m_condense,pin,pout,mdot,Q] = Recal_air(xout,T_inlet,mdot_inlet,p_inlet,x_inlet,GeoCondition,T_wall);
 
 %%
 % 后处理
 % f1 = "out.simlog.Pipe" + num2str([9:17]') + ".mdot_B.series";
 % f2 = "out.simlog.Pipe" + num2str([9:17]') + ".B.p.series";
-out = sim("InTube_HT_Check_Airside");
+%out = sim("InTube_HT_Check_Airside");
 
 Sim_m = zeros(8,size(out.tout,1));
 Sim_p = zeros(8,size(out.tout,1));
 Sim_Q = zeros(8,size(out.tout,1));
+Sim_Condense = zeros(8,size(out.tout,1));
 
 for i = 1: 8
     f1 = "out.simlog.Pipe" + num2str(i+8) + ".mdot_B.series";
     f2 = "out.simlog.Pipe" + num2str(i+8) + ".B.p.series";
     f3 = "out.simlog.Pipe" + num2str(i+8) + ".Q_H.series";
+    f4 = "out.simlog.Pipe" + num2str(i+8) + ".condensation.series";
     msim = eval(f1);
     psim = eval(f2);
     Qsim = eval(f3);
+    Condensesim = eval(f4);
 
     Sim_m(i,:) = -1*values(msim)';
     Sim_p(i,:) = values(psim)';
     Sim_Q(i,:) = -1*values(Qsim)';
+    Sim_Condense(i,:) = -1*values(Condensesim)';
 end
 
-m = tiledlayout(3,1);
+m = tiledlayout(4,1);
 m.Padding = "compact";
 m.TileSpacing = "compact";
 
@@ -136,11 +140,18 @@ title("Pressure of connect outlet")
 ylabel('p/MPa','FontName','Times New Roman','FontSize',15)
 legend(["Simscape","Script"])
 
+nexttile
+bar(f,[-1*Sim_Condense(:,end),reshape(m_condense,row*col,1)])
+grid on 
+%ylim([0.1013,0.101325])
+title("Condensation of each tube")
+ylabel('m.condense/kgs^{-1}','FontName','Times New Roman','FontSize',15)
+legend(["Simscape","Script"])
 
 hAxes = findobj(gcf,"Type","axes");         % 先获取图的对象
 fontsize1 = 18;                             % 参数化·
 
-for i = 1:3                               % 进入循环，将所有子图的共性内容给处理掉，非共性的可以在外边处理
+for i = 1:4                               % 进入循环，将所有子图的共性内容给处理掉，非共性的可以在外边处理
     hAxes(i).FontName = "Times New Roman";
     hAxes(i).FontSize = fontsize1;
     hAxes(i).Box = "on";
@@ -313,7 +324,7 @@ F(2*row*col + 2 : 3*row*col + 1) = m_w_equation/1e-8;
 
 end
 
-function [pin,pout,mdot,Q] = Recal_air(x,T_inlet,mdot_inlet,p_inlet,x_inlet,GeoCondition,T_wall)
+function [fiin,fiout,m_condense,pin,pout,mdot,Q] = Recal_air(x,T_inlet,mdot_inlet,p_inlet,x_inlet,GeoCondition,T_wall)
 
 global hw hvaporize visw kw Prw hair visair kair Prair psatvap
 Ra = 287.047;       % J/K kg
@@ -365,7 +376,10 @@ m_w_equation = reshape(m_w_in - m_w_out - m_condense,row*col,1);
 
 % 获取水的压力
 p_w_in = pin.*x_w_in*Rw./(x_w_in*Rw + (1-x_w_in)*Ra);                       % row,col    MPa
-p_w_out = pout.*x_w_out*Rw./(x_w_out*Rw + (1-x_w_out)*Ra);  % Pa
+p_w_out = pout.*x_w_out*Rw./(x_w_out*Rw + (1-x_w_out)*Ra);  % MPa
+
+fiin = 1e6*p_w_in./p_wsat_in;
+fiout = 1e6*p_w_out./p_wsat_out;
 
 % 获取水的进出口焓
 h_w_in = hw(Tin,p_w_in*1e6);  % J/kg
