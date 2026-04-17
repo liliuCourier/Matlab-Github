@@ -33,32 +33,24 @@
 % Prair = griddedInterpolant(T,Pr_air,"linear","linear");
 %%
 
-col = 2;
-row = 4;
-
-T_inlet = 320;
-mdot_inlet = 1.15e-4;
-p_inlet = 0.101325;
-
-fi_inlet = 0.5;
-p_wsat_inlet_init = psatvap(T_inlet);  
-p_w_inlet = p_wsat_inlet_init*fi_inlet;
-W_inlet = (Ra/Rw)*(p_w_inlet/(p_inlet*1e6 - p_w_inlet));
-x_inlet = W_inlet/(1+W_inlet);
-%x_inlet = 0.0007;
-
-T_wall = 300;
-%CV_num = 10;
-
 %GeoConditionStrcut;
-L = 0.24;
-D = 5e-3;
-r = 1e-6;
+L = 0.10;   D = 5e-3;    r = 1e-6;
+col = 2;    row = 4;     CV_num = 10;
 GeoCondition = struct("L",L,...
     "D",D,...
     "r",r,...
     "col",col, ...
-    "row",row);
+    "row",row,...
+    "CV_num",CV_num);
+
+T_wall = 308;
+
+T_inlet = 320;
+mdot_inlet = 1.15e-4;
+p_inlet = 0.101325;
+RH_inlet = 0.5;
+
+x_inlet = RHTox(RH_inlet,T_inlet,p_inlet*1e6);      % 要求输入的压力单位为Pa
 
 mdot_init = mdot_inlet/4*ones(row,1);       % row,1          kg/s
 Tout_init = 300*ones(col*row,1);            % row*col,1      K
@@ -82,14 +74,14 @@ x0 = [mdot_init;Tout_init;x_w_out_init;pinside_init;p_outlet];
 options = optimoptions('fsolve','Display','iter','Algorithm','levenberg-marquardt','FunctionTolerance',1e-6,'MaxFunctionEvaluations',5e4,'StepTolerance',1e-8);
 xout = fsolve(@(x) HX_air(x,T_inlet,mdot_inlet,p_inlet,x_inlet,GeoCondition,T_wall),xout,options);
 
-%%
+
 [fiin,fiout,m_condense,pin,pout,mdot,Q] = Recal_air(xout,T_inlet,mdot_inlet,p_inlet,x_inlet,GeoCondition,T_wall);
 
 %%
 % 后处理
 % f1 = "out.simlog.Pipe" + num2str([9:17]') + ".mdot_B.series";
 % f2 = "out.simlog.Pipe" + num2str([9:17]') + ".B.p.series";
-%out = sim("InTube_HT_Check_Airside");
+out = sim("InTube_HT_Check_Airside");
 
 Sim_m = zeros(8,size(out.tout,1));
 Sim_p = zeros(8,size(out.tout,1));
@@ -136,7 +128,7 @@ nexttile
 bar(f,[Sim_p(:,end),reshape(pout,row*col,1)])
 grid on 
 ylim([0.1013,0.101325])
-title("Pressure of connect outlet")
+title("Pressure of tube outlet")
 ylabel('p/MPa','FontName','Times New Roman','FontSize',15)
 legend(["Simscape","Script"])
 
@@ -162,26 +154,20 @@ end
 
 
 
-
-
 %%
 function F = HX_air(x,T_inlet,mdot_inlet,p_inlet,x_inlet,GeoCondition,T_wall)
 
 global hw hvaporize visw kw Prw hair visair kair Prair psatvap
-Ra = 287.047;       % J/K kg
-Rw = 461.523;       % J/K kg
+L = GeoCondition.L; D = GeoCondition.D; r = GeoCondition.r;
+col = GeoCondition.col; row = GeoCondition.row; CV_num = GeoCondition.CV_num;
 
-L = GeoCondition.L;
-D = GeoCondition.D;
-r = GeoCondition.r;
-col = GeoCondition.col;
-row = GeoCondition.row;
+A = pi*D*L;  S = pi*D^2/4;
+Ra = 287.047;  Rw = 461.523;         % J/K kg
 
-A = pi*D*L;
-S = pi*D^2/4;
-
+% 尽量处理成列向量,在使用矩阵形式处理完进出口问题后，就直接转换为列向量
 mdot_init = x(1:row);
 
+% 这种矩阵形式处理进出口信息非常方便
 mdot = repelem(mdot_init,1,col);                                            % row,col    kg/s
 Tout = reshape(x(row+1:row+col*row),row,col);                               % row,col    K
 x_w_out = reshape(x(row+col*row+1:row+2*col*row),row,col);                  % row,col    1
@@ -484,4 +470,31 @@ F(row*col+2 : 2*row*col + 1) = reshape(mdot.*(h_air_in - h_air_out) + Q_vap - Q,
 % 水质量守恒方程
 F(2*row*col + 2 : 3*row*col + 1) = m_w_equation/1e-8;
 
+end
+
+
+
+
+% 以下两个函数中输入的压力都要求为Pa
+function x = RHTox(RH,T,p)
+if any(RH>1,"all")
+    warning('严格来说，不允许输入大于1的相对湿度');
+end
+Ra = 287.047;  Rw = 461.523;         % J/K kg
+global psatvap
+p_w_sat = psatvap(T);  % Pa
+p_w = p_w_sat.*RH;     % Pa
+W = (Ra/Rw)*(p_w/(p - p_w));
+x = W./(1+W);
+end
+
+function RH = xToRH(x,T,p)
+Ra = 287.047;  Rw = 461.523;         % J/K kg
+global psatvap
+p_w_sat = psatvap(T);  % Pa
+p_w = p.*x*Rw./(x*Rw + (1-x)*Ra);   
+RH = p_w./p_w_sat;
+if any(RH>1,"all")
+    warning('计算出了大于1的相对湿度！');
+end
 end
