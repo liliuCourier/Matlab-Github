@@ -173,7 +173,7 @@ dp = dp_lam .* (1 - w) + dp_tur .* w - (pin - pout)*1e6;
 h = (Nu_lam.*(1 - w) + Nu_tur.*w).*ktube/D;
 
 %% 换热温差的计算
-
+%T_wall = 300;
 dT1 = Tin -T_wall;
 dT2 = Tout - T_wall;
 dT = zeros(size(dT1));
@@ -204,6 +204,8 @@ F(1:row*col*CV_num) = dp;
 F(row*col*CV_num+1 : 2*row*col*CV_num) = (mdot.*(h_in - h_out) + Q_vap - Q)/(sum(mdot_inlet)*T_inlet*2);
 F(2*row*col*CV_num+1 : 3*row*col*CV_num) = m_w_equation/1e-8/CV_num;
 F(3*row*col*CV_num+1) = (mdot_inlet - ones(1,row*CV_num)*mdot_init)/mdot_inlet;
+
+
 end
 
 function [RH_in,RH_out,m_condense,pin,pout,mdot,Q] = Recal_air(x,T_inlet,mdot_inlet,p_inlet,x_inlet,GeoCondition,T_wall)

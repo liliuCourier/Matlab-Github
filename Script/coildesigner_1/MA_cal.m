@@ -112,7 +112,7 @@ dp = dp_lam .* (1 - w) + dp_tur .* w - (pin - pout)*1e6;
 h = (Nu_lam.*(1 - w) + Nu_tur.*w).*ktube/D;
 
 %% 换热温差的计算
-
+T_wall = 310;
 dT1 = Tin -T_wall;
 dT2 = Tout - T_wall;
 dT = zeros(size(dT1));
@@ -139,11 +139,17 @@ Q_vap = m_condense.*h_w_vaporize;
 %% 残差构造
 % 变量总数3col*row*CV_num+1，对应方程数3col*row*CV_num+1
 % 能量、质量流量-压损、水质量流量守恒方程各col*row*CV_num个，额外有个进口流量分配守恒方程
-F(1:row*col*CV_num) = dp;
-F(row*col*CV_num+1 : 2*row*col*CV_num) = m_w_equation/1e-8/CV_num;
-F(2*row*col*CV_num+1) = (mdot_inlet - ones(1,row*CV_num)*mdot_init)/mdot_inlet;
-
+% F(1:row*col*CV_num) = dp;
+% F(row*col*CV_num+1 : 2*row*col*CV_num) = m_w_equation/1e-8/CV_num;
+% F(2*row*col*CV_num+1) = (mdot_inlet - ones(1,row*CV_num)*mdot_init)/mdot_inlet;
+% 
 dEF_air = mdot.*(h_in - h_out) + Q_vap;
-%F(row*col*CV_num+1 : 2*row*col*CV_num) = (mdot.*(h_in - h_out) + Q_vap - Q)/(sum(mdot_inlet)*T_inlet*2);
+% %F(row*col*CV_num+1 : 2*row*col*CV_num) = (mdot.*(h_in - h_out) + Q_vap - Q)/(sum(mdot_inlet)*T_inlet*2);
+
+F(1:row*col*CV_num) = dp;
+F(row*col*CV_num+1 : 2*row*col*CV_num) = (mdot.*(h_in - h_out) + Q_vap - Q)/(sum(mdot_inlet)*T_inlet*2);
+F(2*row*col*CV_num+1 : 3*row*col*CV_num) = m_w_equation/1e-8/CV_num;
+F(3*row*col*CV_num+1) = (mdot_inlet - ones(1,row*CV_num)*mdot_init)/mdot_inlet;
+
 
 end

@@ -39,7 +39,7 @@ T = 273.15 + [1:1:100]';
 [P_vap_sat,h_vaporaize_w] = getFluidProperty(libLoc,'P,HEATVAPZ','T',T,'Q',1,R_2, 1, 1, 'MASS BASE SI');
 [h_w,vis_w,k_w,Pr_w] = getFluidProperty(libLoc,'H,VIS,TCX,PRANDTL','T',T,'P',P_vap_sat,R_2, 1, 1, 'MASS BASE SI');
 
-global hw hvaporize visw kw Prw hair visair kair Prair psatvap Ra Rw
+global hw hvaporize visw kw Prw hair visair kair Prair psatvap 
 
 psatvap = griddedInterpolant(T,P_vap_sat,"linear","linear");
 

@@ -27,6 +27,7 @@ Pipe_out_index = CV_num:CV_num:CV_num*Tube_num;
 hout = hout_init(Pipe_out_index);
 %% 处理管道-节点连接矩阵
 
+TC_matrix = TCinf.TC_matrix;
 judge_port = TCinf.judge_port;
 inlet_num = TCinf.inlet_num;
 outlet_num = TCinf.outlet_num;
@@ -117,14 +118,23 @@ h = h_1P_CV(:) .* (1 - w) + h_2P_CV(:) .* w;  % 线性混合（可改为 Hermite
 w2 = min(max((xtube_CV(:) - (1 - transition_range)) / transition_range, 0), 1);
 h_cal_CV = h .* (1 - w2) + h_1P_CV(:) .* w2;
 
-%% 残差输出
-F(1:con_num) = TCinf*mdot/mdot_inlet;
-F(con_num+1) = (mdot_inlet + inlet_matrix'*mdot)/mdot_inlet;
-% 根据节点写压力-流量关系式
-F(con_num+2:con_num+Tube_num*CV_num+1) = (dp_2(:) - (pin_CV(:) - pout_CV(:))*1e6)/(0.001*1e6);
-
-% 能流输出
+% %% 残差输出
+% F(1:con_num) = TCinf*mdot/mdot_inlet;
+% F(con_num+1) = (mdot_inlet + inlet_matrix'*mdot)/mdot_inlet;
+% % 根据节点写压力-流量关系式
+% F(con_num+2:con_num+Tube_num*CV_num+1) = (dp_2(:) - (pin_CV(:) - pout_CV(:))*1e6)/(0.001*1e6);
+% 
+% % 能流输出
 dEF = mdot_CV(:).*(hin_CV(:) - hout_CV(:));
+
+T_wall = 300;
+dT_CV = Ttube_CV - T_wall;
+Q_2 = dT_CV(:).*h_cal_CV*A/CV_num;
+F(1:con_num) = TC_matrix*mdot/mdot_inlet;
+F(con_num+1) = (mdot_inlet + inlet_matrix'*mdot)/mdot_inlet;
+F(con_num+2:con_num+Tube_num*CV_num+1) = (dp_2(:) - (pin_CV(:) - pout_CV(:))*1e6)/(0.001*1e6);
+F(con_num+Tube_num*CV_num+2:con_num+2*Tube_num*CV_num+1) = (mdot_CV(:).*(hin_CV(:) - hout_CV(:)) - Q_2/1e3)/(mdot_inlet*h_inlet/CV_num);
+
 
 % 检验，一旦出现NaN和inf就会停止程序，方便后续调试哪里出现了问题
 if any(~isfinite(F)) || ~isreal(F)
