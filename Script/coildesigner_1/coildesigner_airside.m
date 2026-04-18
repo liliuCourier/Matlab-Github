@@ -34,8 +34,8 @@
 %%
 
 %GeoConditionStrcut;
-L = 0.10;   D = 5e-3;    r = 1e-6;
-col = 2;    row = 4;     CV_num = 1;
+L = 0.1;   D = 5e-3;    r = 1e-6;
+col = 2;    row = 4;     CV_num = 2;
 GeoCondition = struct("L",L,...
     "D",D,...
     "r",r,...
@@ -66,8 +66,8 @@ options = optimoptions('fsolve','Display','iter','Algorithm','levenberg-marquard
 xout = fsolve(@(x) HX_air(x,T_inlet,mdot_inlet,p_inlet,x_inlet,GeoCondition,T_wall),x0,options);
 
 
-[RHin,RHout,m_condense,pin,pout,mdot,Q] = Recal_air(xout,T_inlet,mdot_inlet,p_inlet,x_inlet,GeoCondition,T_wall);
-run("PostProcessing_air.m")
+%[RHin,RHout,m_condense,pin,pout,mdot,Q] = Recal_air(xout,T_inlet,mdot_inlet,p_inlet,x_inlet,GeoCondition,T_wall);
+%run("PostProcessing_air.m")
 %%
 function F = HX_air(x,T_inlet,mdot_inlet,p_inlet,x_inlet,GeoCondition,T_wall)
 
@@ -81,7 +81,7 @@ Ra = 287.047;  Rw = 461.523;         % J/K kg
 % 尽量处理成列向量,在使用矩阵形式处理完进出口问题后，就直接转换为列向量
 mdot_init = x(1:row*CV_num);                                     % kg/s 每CV_num个代表了一排管中各个控制体的流量，也是按照流向内部的方向分布
 
-mdot = repelem(mdot_init,col,1);
+mdot = repmat(mdot_init,col,1);
 Tout =     x(row*CV_num+1 : (col+1)*row*CV_num);                 % K
 x_w_out =  x((col+1)*row*CV_num + 1 : (2*col+1)*row*CV_num);     % 1
 pinside =  x((2*col+1)*row*CV_num + 1 : 3*col*row*CV_num);       % Pa
@@ -207,7 +207,7 @@ Q_vap = m_condense.*h_w_vaporize;
 F(1:row*col*CV_num) = dp;
 F(row*col*CV_num+1 : 2*row*col*CV_num) = (mdot.*(h_in - h_out) + Q_vap - Q)/(sum(mdot_inlet)*T_inlet*2);
 F(2*row*col*CV_num+1 : 3*row*col*CV_num) = m_w_equation/1e-8/CV_num;
-F(3*row*col*CV_num+1) = (mdot_inlet - ones(1,row)*mdot_init)/mdot_inlet;
+F(3*row*col*CV_num+1) = (mdot_inlet - ones(1,row*CV_num)*mdot_init)/mdot_inlet;
 end
 
 function [RH_in,RH_out,m_condense,pin,pout,mdot,Q] = Recal_air(x,T_inlet,mdot_inlet,p_inlet,x_inlet,GeoCondition,T_wall)

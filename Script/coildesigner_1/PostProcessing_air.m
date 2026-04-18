@@ -1,5 +1,5 @@
 % PostProcessing
-%out = sim("InTube_HT_Check_Airside");
+out = sim("InTube_HT_Check_Airside");
 
 Sim_m = zeros(8,size(out.tout,1));
 Sim_p = zeros(8,size(out.tout,1));
