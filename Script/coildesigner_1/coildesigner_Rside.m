@@ -44,7 +44,7 @@ T_wall = 320;
 CV_num = 10;
 
 %GeoConditionStrcut;
-L = 1.5;
+L = 0.3;
 D = 5e-3;
 r = 1e-6;
 GeoCondition = struct("L",L,...
@@ -60,10 +60,10 @@ p_outlet = 0.95;
 % 组装初始条件_列向量
 x0 = [mdot_init;hout_init;p_inside_init;p_con_init;p_outlet];
 
-options = optimoptions('fsolve','Display','iter','Algorithm','levenberg-marquardt','FunctionTolerance',1e-6,'MaxFunctionEvaluations',5e4,'StepTolerance',1e-8);
-xout = fsolve(@(x) HX(x,TC_matrix,h_inlet,mdot_inlet,p_inlet,T_wall,GeoCondition,CV_num),xout,options);
+options = optimoptions('fsolve','Display','iter','Algorithm','levenberg-marquardt','FunctionTolerance',1e-6,'MaxFunctionEvaluations',5e4,'StepTolerance',1e-8,'Scale','jacobian');
+xout = fsolve(@(x) HX(x,TC_matrix,h_inlet,mdot_inlet,p_inlet,T_wall,GeoCondition,CV_num),x0,options);
 
-[Q_1,Q_2,hin_CV,hout_CV,pin_CV,pout_CV,Ttube_CV,mdot,dp_1,dp_2] = Recal(xout,TC_matrix,h_inlet,p_inlet,T_wall,GeoCondition,CV_num);
+[Q_1,Q_2,hin_CV,hout_CV,pin_CV,pout_CV,Ttube_CV,mdot,dp_1,dp_2] = Recal(xout,TC_matrix,h_inlet,p_inlet,T_wall,GeoCondition,CV_num);                                                               
 % HX(xout,TC_matrix,h_inlet,mdot_in,p_in,T_wall,GeoCondition,CV_num)
 
 %%

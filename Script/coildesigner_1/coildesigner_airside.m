@@ -45,24 +45,20 @@ GeoCondition = struct("L",L,...
 
 T_wall = 308;           % K
 
-T_inlet = 320;          % K
-mdot_inlet = 1.15e-4;   % kg/s
-p_inlet = 0.101325e6;   % pa
-RH_inlet = 0.5;         % 1
 
-x_inlet = RHTox(RH_inlet,T_inlet,p_inlet);      % 函数要求输入的压力单位为Pa
 
+x_inlet = RHTox(RH_inlet,T_inlet,p_inlet*1e6);      % 函数要求输入的压力单位为Pa
 % 所有遍历控制体进行定义都是tube by tube 并且按照向内流动的形式进行排列
-mdot_init = (mdot_inlet/row/CV_num)*ones(row*CV_num,1);              %   kg/s
+mdot_init = (mdot_inlet/row/CV_num)*ones(row*CV_num,1);            %   kg/s
 Tout_init = T_inlet*ones(col*row*CV_num,1);                        %   K
 x_w_out_init = x_inlet*ones(col*row*CV_num,1);                     %   1
-pinside_init = 0.10132e6*ones((col-1)*row*CV_num,1);                 %   Pa
-p_outlet = 0.1013e6;                                                %   Pa
+pinside_init = 0.10132*ones((col-1)*row*CV_num,1);                 %   MPa
+p_outlet = 0.1013;                                                 %   MPa
 
 % 组装初始条件_列向量
 x0 = [mdot_init;Tout_init;x_w_out_init;pinside_init;p_outlet];
 
-options = optimoptions('fsolve','Display','iter','Algorithm','levenberg-marquardt','FunctionTolerance',1e-6,'MaxFunctionEvaluations',5e4,'StepTolerance',1e-8);
+options = optimoptions('fsolve','Display','iter','Algorithm','levenberg-marquardt','FunctionTolerance',1e-6,'MaxFunctionEvaluations',5e4,'StepTolerance',1e-8,'ScaleProblem','jacobian');
 xout = fsolve(@(x) HX_air(x,T_inlet,mdot_inlet,p_inlet,x_inlet,GeoCondition,T_wall),x0,options);
 
 
@@ -84,12 +80,12 @@ mdot_init = x(1:row*CV_num);                                     % kg/s 每CV_nu
 mdot = repmat(mdot_init,col,1);
 Tout =     x(row*CV_num+1 : (col+1)*row*CV_num);                 % K
 x_w_out =  x((col+1)*row*CV_num + 1 : (2*col+1)*row*CV_num);     % 1
-pinside =  x((2*col+1)*row*CV_num + 1 : 3*col*row*CV_num);       % Pa
-p_outlet = x(end);                                               % Pa
+pinside =  x((2*col+1)*row*CV_num + 1 : 3*col*row*CV_num);       % MPa
+p_outlet = x(end);                                               % MPa
                                                        
 %% 计算中间变量，以及必要的物性计算
-pout = [pinside;p_outlet*ones(row*CV_num,1)];                               % Pa
-pin = [p_inlet*ones(row*CV_num,1);pinside];                                 % Pa
+pout = [pinside;p_outlet*ones(row*CV_num,1)];                               % MPa
+pin = [p_inlet*ones(row*CV_num,1);pinside];                                 % MPa
 x_w_in = [x_inlet*ones(row*CV_num,1);x_w_out(1:row*(col-1)*CV_num)];        % 1
 Tin = [T_inlet*ones(row*CV_num,1);Tout(1:row*(col-1)*CV_num)];              % K
 
@@ -97,7 +93,7 @@ Tin = [T_inlet*ones(row*CV_num,1);Tout(1:row*(col-1)*CV_num)];              % K
 p_wsat_in = psatvap(Tin);                                                   % Pa
 p_wsat_out = psatvap(Tout);                                                 % Pa
 
-W_in_max = (Ra/Rw)*(p_wsat_in./(pin - p_wsat_in)); W_out_max = (Ra/Rw)*(p_wsat_out./(pout - p_wsat_out));
+W_in_max = (Ra/Rw)*(p_wsat_in./(pin*1e6 - p_wsat_in)); W_out_max = (Ra/Rw)*(p_wsat_out./(pout*1e6 - p_wsat_out));
 x_in_max = W_in_max./(1+W_in_max); x_out_max = W_out_max./(1+W_out_max);
 
 % 如果x超限，将超出部分视为冷凝，对于进口而言，上游不可能来水，而对于下游，超出部分作为本管冷凝水
@@ -111,14 +107,14 @@ m_w_out = x_w_out.*mdot;
 m_w_equation = m_w_in - m_w_out - m_condense;
 
 % 必须在重新获取质量分数之后，才能获取水的压力
-p_w_in = pin.*x_w_in*Rw./(x_w_in*Rw + (1-x_w_in)*Ra);       % Pa
-p_w_out = pout.*x_w_out*Rw./(x_w_out*Rw + (1-x_w_out)*Ra);  % Pa
+p_w_in = pin.*x_w_in*Rw./(x_w_in*Rw + (1-x_w_in)*Ra);       % MPa
+p_w_out = pout.*x_w_out*Rw./(x_w_out*Rw + (1-x_w_out)*Ra);  % MPa
 
 % 获取水的进出口焓
-h_w_in = hw(Tin,p_w_in);            % J/kg
-h_w_out = hw(Tout,p_w_out);         % J/kg
-vis_w_in = visw(Tin,p_w_in);        % pa
-vis_w_out = visw(Tout,p_w_out);     % pa
+h_w_in = hw(Tin,p_w_in*1e6);            % J/kg
+h_w_out = hw(Tout,p_w_out*1e6);         % J/kg
+%vis_w_in = visw(Tin,p_w_in*1e6);        % pa
+%vis_w_out = visw(Tout,p_w_out*1e6);     % pa
 
 % 获取空气的进出口焓
 h_air_in = hair(Tin);               % J/kg
@@ -132,7 +128,7 @@ h_w_vaporize = hvaporize(Tin);      % J/kg
 % 使用理想气体来求空气的密度
 ptube = (pin + pout)/2;
 Ttube = (Tin + Tout)/2;
-vtube = Ra*Ttube./(ptube);
+vtube = Ra*Ttube./(ptube*1e6);
 
 vis_air_in = visair(Tin);
 vis_air_out = visair(Tout);
@@ -173,7 +169,7 @@ w = (Re_avg - Re_lam_upper) / (Re_tur_lower - Re_lam_upper);
 w = max(0, min(1, w));   % 限制在 [0, 1] 区间
 
 % 最终压降：线性插值
-dp = dp_lam .* (1 - w) + dp_tur .* w - (pin - pout);
+dp = dp_lam .* (1 - w) + dp_tur .* w - (pin - pout)*1e6;
 h = (Nu_lam.*(1 - w) + Nu_tur.*w).*ktube/D;
 
 %% 换热温差的计算

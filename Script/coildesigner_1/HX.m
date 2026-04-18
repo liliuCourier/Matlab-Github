@@ -1,5 +1,8 @@
 function F = HX(x0,TC_matrix,h_inlet,mdot_inlet,p_inlet,T_wall,GeoCondition,CV_num)
 
+% FlowDirection中1代表摆放顺序和流动顺序一致，0代表摆放顺序和流动顺序相反
+FlowDirection = [1;0;1;1;1;0;0;0;0];
+
 Tube_num = size(TC_matrix,2);
 con_num = size(TC_matrix,1);
 
@@ -10,7 +13,7 @@ r = GeoCondition.r;
 A = pi*D*L;
 S = pi*D^2/4;
 
-mdot = x0(1:Tube_num);                              
+mdot = x0(1:Tube_num);   % 和流向没有关系                           
 hout_init = x0(Tube_num+1:Tube_num+CV_num*Tube_num);                  
 pinside_init = x0(Tube_num+CV_num*Tube_num + 1:Tube_num+CV_num*Tube_num + (CV_num-1)*Tube_num);    
 p_con =  x0(Tube_num+CV_num*Tube_num + (CV_num-1)*Tube_num + 1:end-1);  
