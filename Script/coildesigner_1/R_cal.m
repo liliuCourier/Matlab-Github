@@ -1,4 +1,4 @@
-function [F,Tin_CV,Tout_CV,h,dEF] = R_cal(x0,BDCondition,GeoCondition,TCinf)
+function [F,Tin_CV_1_out,Tout_CV_1_out,h_cal_CV_1_out,dEF_out] = R_cal(x0,BDCondition,GeoCondition,TCinf)
 
 % 流动映射挪到主函数去做
 h_inlet = BDCondition.h_R_inlet;
@@ -68,76 +68,67 @@ p_tube = (pin + pout)/2;
 % 写摩擦因子
 mdot_CV = repmat(mdot, 1, CV_num);
 % 计算每根管的平均速度
-veloctiy = 0.5*(mdot./Din+mdot./Dout)/S;
 veloctiy_CV = 0.5*(mdot_CV./Din_CV+mdot_CV./Dout_CV)/S;
 
 % 计算每根管的Re
-Re = abs(veloctiy)*D./(Nutube*1e-6);
-Re_satliq = abs(mdot).*vsatliq*D./(S*Nusatliq*1e-6);
-
 Re_CV = abs(veloctiy_CV)*D./(Nutube_CV*1e-6);
 Re_satliq_CV = abs(mdot_CV).*vsatliq_CV*D./(S*Nusatliq_CV*1e-6);
 
 % 计算管Re
-f = (-1.8*log10(6.9./Re+(r/3.7)^1.11)).^(-2);
 f_CV = (-1.8*log10(6.9./Re_CV+(r/3.7)^1.11)).^(-2);
 
 % 计算压差
-dp_f = f*L.*mdot.^2./(2*Dtube*D*S^2);
-dp_v = 16*mdot.^2/(pi^2*D^4).*(1./Dout - 1./Din);
-dp_1 = dp_f + dp_v;
 
-dp_f_CV = f_CV*L/CV_num.*mdot_CV.^2./(2*Dtube_CV*D*S^2);
+dp_f_CV = (f_CV*L/CV_num).*(mdot_CV.^2)./(2*Dtube_CV*D*S^2);
 dp_v_CV = 16*mdot_CV.^2/(pi^2*D^4).*(1./Dout_CV - 1./Din_CV);
 dp_2 = (dp_f_CV + dp_v_CV);
 
-
+Tin_CV_1 = Tin_CV';
+Tout_CV_1 = Tout_CV';
+Tin_CV_1_out = Tin_CV_1(:);
+Tout_CV_1_out = Tout_CV_1(:);
 % 单相采用Gnielinski公式
-Nu_1P = (f/8.*max(Re - 1000,0).*Prtube)./(1+12.7*sqrt(f/8).*(Prtube.^(2/3)-1));
-h_1P = ktube.*Nu_1P/D;
 
 Nu_1P_CV = (f_CV/8.*max(Re_CV - 1000,0).*Prtube_CV)./(1+12.7*sqrt(f_CV/8).*(Prtube_CV.^(2/3)-1));
 h_1P_CV = ktube_CV.*Nu_1P_CV/D;
-
-% 两相采用Cavallini and Zecchin correlation:
-Nu_2P = 0.05*(((1-xtube+xtube.*sqrt(vsatvap./vsatliq)).*Re_satliq).^0.8).*Prsatliq.^0.33;
-h_2P = ksatliq.*Nu_2P/D;
 
 Nu_2P_CV = 0.05*(((1-xtube_CV+xtube_CV.*sqrt(vsatvap_CV./vsatliq_CV)).*Re_satliq_CV).^0.8).*Prsatliq_CV.^0.33;
 h_2P_CV = ksatliq_CV.*Nu_2P_CV/D;
 
 transition_range = 0.1;
-h_cal = h_1P.*(1 - isTP) + h_2P.*isTP;
-
 
 % 液相到两相混合
-w = min(max(xtube_CV(:) / transition_range, 0), 1);   % 0→1 的权重
-h = h_1P_CV(:) .* (1 - w) + h_2P_CV(:) .* w;  % 线性混合（可改为 Hermite）
+w = min(max(xtube_CV / transition_range, 0), 1);   % 0→1 的权重
+h = h_1P_CV .* (1 - w) + h_2P_CV .* w;  % 线性混合（可改为 Hermite）
 
 % 两相到汽相混合
-w2 = min(max((xtube_CV(:) - (1 - transition_range)) / transition_range, 0), 1);
-h_cal_CV = h .* (1 - w2) + h_1P_CV(:) .* w2;
+w2 = min(max((xtube_CV - (1 - transition_range)) / transition_range, 0), 1);
+h_cal_CV = h .* (1 - w2) + h_1P_CV .* w2;
 
-% %% 残差输出
-% F(1:con_num) = TCinf*mdot/mdot_inlet;
-% F(con_num+1) = (mdot_inlet + inlet_matrix'*mdot)/mdot_inlet;
-% % 根据节点写压力-流量关系式
-% F(con_num+2:con_num+Tube_num*CV_num+1) = (dp_2(:) - (pin_CV(:) - pout_CV(:))*1e6)/(0.001*1e6);
-% 
-% % 能流输出
-dEF = mdot_CV(:).*(hin_CV(:) - hout_CV(:));
+h_cal_CV_1 = h_cal_CV';
+h_cal_CV_1_out = h_cal_CV_1(:);
 
-T_wall = 300;
-dT_CV = Ttube_CV - T_wall;
-Q_2 = dT_CV(:).*h_cal_CV*A/CV_num;
+%% 残差输出
 F(1:con_num) = TC_matrix*mdot/mdot_inlet;
 F(con_num+1) = (mdot_inlet + inlet_matrix'*mdot)/mdot_inlet;
+% 根据节点写压力-流量关系式
 F(con_num+2:con_num+Tube_num*CV_num+1) = (dp_2(:) - (pin_CV(:) - pout_CV(:))*1e6)/(0.001*1e6);
-F(con_num+Tube_num*CV_num+2:con_num+2*Tube_num*CV_num+1) = (mdot_CV(:).*(hin_CV(:) - hout_CV(:)) - Q_2/1e3)/(mdot_inlet*h_inlet/CV_num);
+
+% 能流输出
+dEF = mdot_CV.*(hin_CV - hout_CV);
+dEF_1 = dEF';
+dEF_out = dEF_1(:);
+% T_wall = 300;
+% dT_CV = Ttube_CV - T_wall;
+% Q_2 = dT_CV(:).*h_cal_CV*A/CV_num;
+% F(1:con_num) = TC_matrix*mdot/mdot_inlet;
+% F(con_num+1) = (mdot_inlet + inlet_matrix'*mdot)/mdot_inlet;
+% F(con_num+2:con_num+Tube_num*CV_num+1) = (dp_2(:) - (pin_CV(:) - pout_CV(:))*1e6)/(0.001*1e6);
+% F(con_num+Tube_num*CV_num+2:con_num+2*Tube_num*CV_num+1) = (mdot_CV(:).*(hin_CV(:) - hout_CV(:)) - Q_2/1e3)/(mdot_inlet*h_inlet/CV_num);
 
 
 % 检验，一旦出现NaN和inf就会停止程序，方便后续调试哪里出现了问题
-if any(~isfinite(F)) || ~isreal(F)
+if any(~isfinite(h_cal_CV_1_out)) || ~isreal(h_cal_CV_1_out)
     fprintf('!!! Invalid residual at iteration !!!\n');
     keyboard;
 end

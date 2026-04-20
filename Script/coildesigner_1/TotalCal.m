@@ -15,25 +15,60 @@ con_num = size(TC_matrix,1);
 
 row = 4;
 col = 2;
-CV_num = 1;
+CV_num = 5;
 
 %GeoConditionStrcut;
-L = 0.1;
+L = 0.5;
 D = 5e-3;
 r = 1e-6;
+D_outer = 6e-3;
+
+
+% 翅片信息
+dx_tube = (D_outer - D)/2;    % 管壁厚度
+dx_fin = 0.1e-3;              % 翅片厚度
+
+Fin_pitch = 2e-3;                   % 翅片间距
+Fin_pitch_net = Fin_pitch - dx_fin; % 翅片净间距
+% 正三角形翅片
+P_row = 1.5*D_outer;          % row管间距
+P_col = sqrt(3)/2*P_row;    % col管间距
+
+L_fin = (row+0.5)*P_row;
+H_fin = col*P_col;
+A_fin = L_fin*H_fin - row*col*pi*D_outer^2/4;
+
+% 平均翅片高就是P_col
+
+fin_num = floor(L/Fin_pitch);
+A_MA = fin_num*A_fin*2 + pi*D_outer*Tube_num*(L-fin_num*dx_fin);
+A_R = row*col*L*pi*D;
+
 GeoCondition = struct("L",L,...
     "D",D,...
+    "D_outer",D_outer,...
     "r",r,...
     "col",col, ...
     "row",row,...
     "Tube_num",Tube_num,...
     "con_num",con_num,...
-    "CV_num",CV_num);
+    "CV_num",CV_num,...
+    "A_R" ,A_R,...
+    "A_MA" ,A_MA,...
+    "A_fin",A_fin,...
+    "P_col" ,P_col,...
+    "P_row" ,P_row,...
+    "Fin_pitch",Fin_pitch, ...
+    "Fin_pitch_net",Fin_pitch_net,...
+    "dx_fin",dx_fin,...
+    "L_fin",L_fin,...
+    "H_fin",H_fin);
 
 
 % 处理管道连接信息矩阵
 
-FlowDirection = [1;0;1;1;1;0;0;0;0];
+FlowDirection = [1;0;1;1;1;0;0;0];
+FlowDirectionInf = [2,6,7,8];
 judge_port = sum(TC_matrix,1);
 inlet_num = find(judge_port == -1);
 outlet_num = judge_port == 1;
@@ -48,6 +83,7 @@ IO_outlet(TC_matrix == -1) = -1;
 
 TCinf = struct("TC_matrix",TC_matrix,...
     "FlowDirection",FlowDirection,...
+    "FlowDirectionInf",FlowDirectionInf,...
     "judge_port",judge_port,...
     "inlet_num",inlet_num, ...
     "outlet_num",outlet_num,...
@@ -59,12 +95,12 @@ TCinf = struct("TC_matrix",TC_matrix,...
 % 边界条件-boundary condition——后续要把边界条件写成结构体
 % 工质侧
 h_R_inlet = 300;
-mdot_R_inlet = 20e-3;
+mdot_R_inlet = 10e-3;
 p_R_inlet = 1;
 
 % 空气侧
-T_MA_inlet = 320;          % K
-mdot_MA_inlet = 1.15e-4;   % kg/s
+T_MA_inlet = 305;          % K
+mdot_MA_inlet = 1.15e-2;   % kg/s
 p_MA_inlet = 0.101325;     % MPa
 RH_MA_inlet = 0.5;         % 1
 x_MA_inlet = RHTox(RH_MA_inlet,T_MA_inlet,p_MA_inlet*1e6);      % 函数要求输入的压力单位为Pa
@@ -86,17 +122,17 @@ BDCondition = struct("BD_R",BD_R,...
 %% 初始条件
 % 工质侧
 mdot_R_init = [mdot_R_inlet/2;mdot_R_inlet/2;mdot_R_inlet;mdot_R_inlet;mdot_R_inlet/2;mdot_R_inlet/2;mdot_R_inlet;mdot_R_inlet];
-hout_R_init = 310*ones(CV_num*Tube_num,1);
+hout_R_init = 299*ones(CV_num*Tube_num,1);
 p_R_inside_init = 0.99*ones((CV_num-1)*Tube_num,1);
 p_R_con_init = 0.99*ones(con_num,1);
-p_R_outlet = 0.95;
+p_R_outlet = 0.98;
 
 % 空气侧
 mdot_MA_init = (mdot_MA_inlet/row/CV_num)*ones(row*CV_num,1);            %   kg/s
 Tout_MA_init = T_MA_inlet*ones(col*row*CV_num,1);                        %   K
 x_MA_w_out_init = x_MA_inlet*ones(col*row*CV_num,1);                     %   1
 pinside_MA_init = 0.10132*ones((col-1)*row*CV_num,1);                 %   MPa
-p_MA_outlet = 0.1013;   
+p_MA_outlet = 0.10131;   
 
 
 %% 组装初始条件
@@ -126,9 +162,10 @@ x0 = [mdot_R_init;
 %       p_R_outlet];
 
 %% 求解
-options = optimoptions('fsolve','Display','iter','Algorithm','levenberg-marquardt','FunctionTolerance',1e-6,'MaxFunctionEvaluations',5e4,'StepTolerance',1e-8,'ScaleProblem','jacobian');
-xout = fsolve(@(x) ResidualFun(x,BDCondition,GeoCondition,TCinf),x0,options);
-
+options = optimoptions('fsolve','Display','iter-detailed','Algorithm','levenberg-marquardt','FunctionTolerance',1e-6,'MaxFunctionEvaluations',5e4,'StepTolerance',1e-8,'ScaleProblem','jacobian');
+xout = fsolve(@(x) ResidualFun(x,BDCondition,GeoCondition,TCinf),xout,options);
+%%
+ResidualFun(xout,BDCondition,GeoCondition,TCinf);
 %% ResidualFun
 function F = ResidualFun(x,BDCondition,GeoCondition,TCinf)
 
@@ -136,6 +173,10 @@ function F = ResidualFun(x,BDCondition,GeoCondition,TCinf)
 L = GeoCondition.L; D = GeoCondition.D; r = GeoCondition.r;
 col = GeoCondition.col; row = GeoCondition.row; CV_num = GeoCondition.CV_num;
 Tube_num = GeoCondition.Tube_num;  con_num = GeoCondition.con_num;
+D_outer = GeoCondition.D_outer;
+% 总换热面积
+A_R = GeoCondition.A_R; A_MA = GeoCondition.A_MA; 
+
 
 %% 反解析初始条件，并重新组装
 
@@ -176,14 +217,65 @@ Tube_num = GeoCondition.Tube_num;  con_num = GeoCondition.con_num;
 [F_MA,Tin_MA,Tout_MA,h_MA,dEF_MA] = MA_cal(x0_MA,BDCondition.BD_MA,GeoCondition);
 
 %% 反解析管道连接信息结构体，处理管道映射
+FlowDirection = TCinf.FlowDirection;
+FlowDirectionInf = TCinf.FlowDirectionInf;
 
+% 处理管道映射
+T_in_R = FlowDirectionMapping(Tin_R,CV_num,Tube_num,FlowDirectionInf);
+T_out_R = FlowDirectionMapping(Tout_R,CV_num,Tube_num,FlowDirectionInf);
+h_R = FlowDirectionMapping(h_R,CV_num,Tube_num,FlowDirectionInf);
+dEF_R = FlowDirectionMapping(dEF_R,CV_num,Tube_num,FlowDirectionInf);
 
-%% 能量守恒残差
-F_Q = zeros(CV_num*row*col,1);
+T_wall = 310;
+% 处理换热温差
+dT1 = T_in_R -Tin_MA;
+dT2 = T_out_R - Tout_MA;
+%dT = T_wall -Tin_MA;
+%dT2 = T_wall - Tout_MA;
 
+dT = zeros(size(dT1));
+mask_normal = (dT1 .* dT2 > 0) & (abs(dT1 - dT2) >= 1e-6);
+dT(mask_normal) = (dT1(mask_normal) - dT2(mask_normal)) ./ log(dT1(mask_normal)./dT2(mask_normal));
+
+mask_equal = (dT1 .* dT2 > 0) & (abs(dT1 - dT2) < 1e-6);
+dT(mask_equal) = (dT1(mask_equal) + dT2(mask_equal)) / 2;
+
+mask_cross = dT1 .* dT2 <= 0;
+if any(mask_cross)
+    %warning('管段 %s 发生温度交叉，使用算术平均温差。', num2str(find(mask_cross)'));
+    dT(mask_cross) = (dT1(mask_cross) + dT2(mask_cross)) / 2;
+end
+A_R_CV = A_R/Tube_num/CV_num;
+A_MA_CV = A_MA/Tube_num/CV_num;
+
+dx_fin = GeoCondition.dx_fin;
+P_col = GeoCondition.P_col;
+
+H = P_col - D_outer/2 + dx_fin/2;
+% 220代表铝翅片,该翅片效率计算式为矩形截面直肋
+mH = H*sqrt(2*h_MA/220/dx_fin);
+n_fin = tanh(mH)./mH;
+
+UA_R = 1./(1./(h_R*A_R_CV)+1./(n_fin.*h_MA*A_MA_CV));
+Q = dT.*UA_R;
+%Q = dT.*n_fin.*h_MA*A_MA_CV;
+% 默认的换热方向为工质向空气换热为正，能流方向R侧为净流入，MA侧也为净流入
+% 需要归一化
+%dEF_R - Q/1e3;
+%dEF_MA + Q
+
+%% 构建能量守恒残差
+mdot_R_inlet = BDCondition.BD_R.mdot_R_inlet;
+h_R_inlet = BDCondition.BD_R.h_R_inlet;
+mdot_MA_inlet = BDCondition.BD_MA.mdot_MA_inlet;
+T_MA_inlet = BDCondition.BD_MA.T_MA_inlet;
+
+F_Q_R = (dEF_R - Q/1e3);%/(mdot_R_inlet*h_R_inlet);
+F_Q_MA = (dEF_MA + Q);
 %% 组装并输出最终残差
-F = [F_R,F_MA];
+%F = [F_R,F_MA,F_Q_MA',F_Q_R'];
 %F = F_R;
+F = [F_R,F_MA,F_Q_R',F_Q_MA'];
 %% 保险
 if any(~isfinite(F)) || ~isreal(F)
     fprintf('!!! Invalid residual at iteration !!!\n');
@@ -217,4 +309,10 @@ RH = p_w./p_w_sat;
 if any(RH>1,"all")
     warning('计算出了大于1的相对湿度！');
 end
+end
+
+function M_out = FlowDirectionMapping(M_in,CV_num,Tube_num,FlowDirectionInf)
+A_mat = reshape(M_in, CV_num, Tube_num);
+A_mat(:, FlowDirectionInf) = flipud(A_mat(:, FlowDirectionInf));
+M_out = A_mat(:);
 end
