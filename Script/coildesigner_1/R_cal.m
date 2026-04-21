@@ -5,14 +5,14 @@ mdot_inlet = BDCondition.mdot_R_inlet;          % 进口总质量流量    kg/s
 p_inlet =    BDCondition.p_R_inlet;             % 进口压力          MPa
 
 % 取出必要的几何条件——就是Tube Configuration
-Tube_num =  GeoCondition.Tube_num;              % 管道数量
-con_num =   GeoCondition.con_num;               % 节点数量          
+Tube_num =  GeoCondition.Tube_num;              % 管道数量     
 L =         GeoCondition.L;                     % 单管长
 D =         GeoCondition.D;                     % 管内径
 r =         GeoCondition.r;                     % 表面相对粗糙度
 CV_num =    GeoCondition.CV_num;                % 划分的控制体数量
 
 % 取出管道连接信息，均在计算前进行了预处理
+con_num =       TCinf.con_num;                  % 节点数量 
 TC_matrix =     TCinf.TC_matrix;                % 管道连接信息矩阵
 inlet_num =     TCinf.inlet_num;                % 进口管号矩阵，形如[1,3,5],代表1、3、5管为进口
 outlet_num =    TCinf.outlet_num;               % 出口管号矩阵，同上

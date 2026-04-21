@@ -5,7 +5,7 @@ clc
 if exist('PropLoaded', 'var')
     disp("物性已加载,不需重复调用物性加载程序")
 else
-    disp("首次调用物性加载程序加载物性")
+    disp("首次调用物性加载程序加载物性...")
     PropLoaded = Prop_both();
 end
 
@@ -29,27 +29,23 @@ L = 0.5;
 D = 5e-3;
 r = 1e-6;
 D_outer = 6e-3;
-
+dx_tube = (D_outer - D)/2;    % 管壁厚度
 
 % 翅片信息
-dx_tube = (D_outer - D)/2;    % 管壁厚度
 dx_fin = 0.1e-3;              % 翅片厚度
-
-Fin_pitch = 2e-3;                   % 翅片间距
-Fin_pitch_net = Fin_pitch - dx_fin; % 翅片净间距
-% 正三角形翅片
+Fin_pitch = 2e-3;             % 翅片间距
 P_row = 1.5*D_outer;          % row管间距
-P_col = sqrt(3)/2*P_row;    % col管间距
+P_col = sqrt(3)/2*P_row;      % col管间距
 
+Fin_pitch_net = Fin_pitch - dx_fin; % 翅片净间距
 L_fin = (row+0.5)*P_row;
 H_fin = col*P_col;
 A_fin = L_fin*H_fin - row*col*pi*D_outer^2/4;
 
 % 平均翅片高就是P_col
-
 fin_num = floor(L/Fin_pitch);
 A_MA = fin_num*A_fin*2 + pi*D_outer*Tube_num*(L-fin_num*dx_fin);
-A_R = row*col*L*pi*D;
+A_R  = row*col*L*pi*D;
 
 GeoCondition = struct("L",L,...
     "D"        ,D,...
@@ -89,15 +85,17 @@ IO_outlet = zeros(size(TC_matrix));
 IO_inlet(TC_matrix == 1) = 1;
 IO_outlet(TC_matrix == -1) = -1;
 
-TCinf = struct("TC_matrix",TC_matrix,...
-    "FlowDirection",FlowDirection,...
-    "FlowDirectionInf",FlowDirectionInf,...
-    "judge_port",judge_port,...
-    "inlet_num",inlet_num, ...
-    "outlet_num",outlet_num,...
-    "inlet_matrix",inlet_matrix,...
-    "IO_inlet",IO_inlet,...
-    "IO_outlet",IO_outlet);
+TCinf = struct( ...
+    "con_num"          ,con_num,...
+    "TC_matrix"        ,TC_matrix,...
+    "FlowDirection"    ,FlowDirection,...
+    "FlowDirectionInf" ,FlowDirectionInf,...
+    "judge_port"       ,judge_port,...
+    "inlet_num"        ,inlet_num, ...
+    "outlet_num"       ,outlet_num,...
+    "inlet_matrix"     ,inlet_matrix,...
+    "IO_inlet"         ,IO_inlet,...
+    "IO_outlet"        ,IO_outlet);
 
 %% 边界条件
 % 边界条件-boundary condition——后续要把边界条件写成结构体
@@ -115,20 +113,23 @@ RH_MA_inlet = 0.5;         % 1
 x_MA_inlet = RHTox(RH_MA_inlet,T_MA_inlet,p_MA_inlet*1e6);      % 函数要求输入的压力单位为Pa
 
 % 组装边界条件结构体
-BD_MA = struct("T_MA_inlet",T_MA_inlet,...
-    "mdot_MA_inlet",mdot_MA_inlet,...
-    "p_MA_inlet",p_MA_inlet,...
-    "x_MA_inlet",x_MA_inlet);
+BD_MA = struct( ...
+    "T_MA_inlet"     ,T_MA_inlet,...
+    "mdot_MA_inlet"  ,mdot_MA_inlet,...
+    "p_MA_inlet"     ,p_MA_inlet,...
+    "x_MA_inlet"     ,x_MA_inlet);
 
-BD_R = struct("h_R_inlet",h_R_inlet,...
-    "mdot_R_inlet",mdot_R_inlet,...
-    "p_R_inlet",p_R_inlet);
+BD_R = struct( ...
+    "h_R_inlet"      ,h_R_inlet,...
+    "mdot_R_inlet"   ,mdot_R_inlet,...
+    "p_R_inlet"      ,p_R_inlet);
 
-BDCondition = struct("BD_R",BD_R,...
-    "BD_MA",BD_MA);
+BDCondition = struct( ...
+    "BD_R"           ,BD_R,...
+    "BD_MA"          ,BD_MA);
 
 
-%% 初始条件
+%% 初始条件——简单初始条件
 % 工质侧
 mdot_R_init = [mdot_R_inlet/2;mdot_R_inlet/2;mdot_R_inlet;mdot_R_inlet;mdot_R_inlet/2;mdot_R_inlet/2;mdot_R_inlet;mdot_R_inlet];
 hout_R_init = 299*ones(CV_num*Tube_num,1);
@@ -140,7 +141,7 @@ p_R_outlet = 0.98;
 mdot_MA_init = (mdot_MA_inlet/row/CV_num)*ones(row*CV_num,1);            %   kg/s
 Tout_MA_init = T_MA_inlet*ones(col*row*CV_num,1);                        %   K
 x_MA_w_out_init = x_MA_inlet*ones(col*row*CV_num,1);                     %   1
-pinside_MA_init = 0.10132*ones((col-1)*row*CV_num,1);                 %   MPa
+pinside_MA_init = 0.10132*ones((col-1)*row*CV_num,1);                    %   MPa
 p_MA_outlet = 0.10131;   
 
 
@@ -184,8 +185,15 @@ options = optimoptions('fsolve','Display','iter-detailed',...
 tic
 xout = fsolve(@(x) ResidualFun(x,BDCondition,GeoCondition,TCinf),x0,options);
 toc
+
+fprintf("该结果为在划分控制体数量%d,进口空气温度 %d K,进口空气质量流量%fkg/s,进口工质压力%2.2fMPa,进口工质质量流量%2.4f,进口工质焓%5.2f的计算结果",CV_num,T_MA_inlet,mdot_MA_inlet,p_R_inlet,mdot_R_inlet,h_R_inlet)
+
 %%
 ResidualFun(xout,BDCondition,GeoCondition,TCinf);
+
+
+
+
 %% ResidualFun
 function F = ResidualFun(x,BDCondition,GeoCondition,TCinf)
 
@@ -303,6 +311,9 @@ if any(~isfinite(F)) || ~isreal(F)
 end
 
 end
+
+
+
 
 
 %% 额外需要的函数
