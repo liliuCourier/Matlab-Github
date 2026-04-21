@@ -95,12 +95,13 @@ TCinf = struct("TC_matrix",TC_matrix,...
 % 边界条件-boundary condition——后续要把边界条件写成结构体
 % 工质侧
 h_R_inlet = 300;
-mdot_R_inlet = 10e-3;
+mdot_R_inlet = 20e-3;
 p_R_inlet = 1;
 
 % 空气侧
-T_MA_inlet = 305;          % K
-mdot_MA_inlet = 1.15e-2;   % kg/s
+% 空气侧采用速度是非常自然的选择，质量流量实在是不好用
+T_MA_inlet = 300;          % K
+mdot_MA_inlet = 1.95e-2;   % kg/s
 p_MA_inlet = 0.101325;     % MPa
 RH_MA_inlet = 0.5;         % 1
 x_MA_inlet = RHTox(RH_MA_inlet,T_MA_inlet,p_MA_inlet*1e6);      % 函数要求输入的压力单位为Pa
@@ -162,8 +163,19 @@ x0 = [mdot_R_init;
 %       p_R_outlet];
 
 %% 求解
-options = optimoptions('fsolve','Display','iter-detailed','Algorithm','levenberg-marquardt','FunctionTolerance',1e-6,'MaxFunctionEvaluations',5e4,'StepTolerance',1e-8,'ScaleProblem','jacobian');
-xout = fsolve(@(x) ResidualFun(x,BDCondition,GeoCondition,TCinf),xout,options);
+
+% 算法采用levenberg-marquardt，经典非线性算法
+% 最大
+options = optimoptions('fsolve','Display','iter-detailed',...
+    'Algorithm','levenberg-marquardt',...
+    'FunctionTolerance',1e-6,...
+    'MaxFunctionEvaluations',5e4,...
+    'StepTolerance',1e-8,...
+    'UseParallel',false,...
+    'ScaleProblem','jacobian');
+tic
+xout = fsolve(@(x) ResidualFun(x,BDCondition,GeoCondition,TCinf),x0,options);
+toc
 %%
 ResidualFun(xout,BDCondition,GeoCondition,TCinf);
 %% ResidualFun
@@ -226,7 +238,7 @@ T_out_R = FlowDirectionMapping(Tout_R,CV_num,Tube_num,FlowDirectionInf);
 h_R = FlowDirectionMapping(h_R,CV_num,Tube_num,FlowDirectionInf);
 dEF_R = FlowDirectionMapping(dEF_R,CV_num,Tube_num,FlowDirectionInf);
 
-T_wall = 310;
+
 % 处理换热温差
 dT1 = T_in_R -Tin_MA;
 dT2 = T_out_R - Tout_MA;
