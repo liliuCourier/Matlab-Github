@@ -36,7 +36,7 @@ dx_fin = 0.1e-3;              % 翅片厚度
 Fin_pitch = 2e-3;             % 翅片间距
 % 注意，此处的管间距和管径相关
 P_row = 20e-3;          % row管间距
-P_col = 15e-3;      % col管间距
+P_col = 20e-3;      % col管间距
 
 Fin_pitch_net = Fin_pitch - dx_fin; % 翅片净间距
 L_fin = (row+0.5)*P_row;
@@ -46,7 +46,7 @@ A_fin = L_fin*H_fin - row*col*pi*(D_outer+1e-3)^2/4;
 % 平均翅片高就是P_col
 fin_num = floor(L/Fin_pitch);
 A_MA = fin_num*A_fin*2 + pi*D_outer*Tube_num*(L-fin_num*dx_fin);
-%A_MA = 0.5852;
+%A_MA = 1.4052;
 A_R  = row*col*L*pi*D;
 
 GeoCondition = struct("L",L,...
@@ -300,8 +300,11 @@ h_R_inlet = BDCondition.BD_R.h_R_inlet;
 mdot_MA_inlet = BDCondition.BD_MA.mdot_MA_inlet;
 T_MA_inlet = BDCondition.BD_MA.T_MA_inlet;
 
-F_Q_R = (dEF_R- Q/1e3);%/(mdot_R_inlet*h_R_inlet);
-F_Q_MA = (dEF_MA + Q);
+% 没有解决残差问题，仍然是暂缓之策
+Q_residual = 500/CV_num/Tube_num;
+
+F_Q_R = (dEF_R*1e3- Q)/Q_residual;%/(mdot_R_inlet*h_R_inlet);
+F_Q_MA = (dEF_MA + Q)/Q_residual;
 %% 组装并输出最终残差
 %F = [F_R,F_MA,F_Q_MA',F_Q_R'];
 %F = F_R;
