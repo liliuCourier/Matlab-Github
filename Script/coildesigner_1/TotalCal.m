@@ -26,25 +26,27 @@ CV_num = 5;
 
 %GeoConditionStrcut;
 L = 0.5;
-D = 5e-3;
+D = 9e-3;
 r = 1e-6;
-D_outer = 6e-3;
+D_outer = 10e-3;
 dx_tube = (D_outer - D)/2;    % 管壁厚度
 
 % 翅片信息
 dx_fin = 0.1e-3;              % 翅片厚度
 Fin_pitch = 2e-3;             % 翅片间距
-P_row = 1.5*D_outer;          % row管间距
-P_col = sqrt(3)/2*P_row;      % col管间距
+% 注意，此处的管间距和管径相关
+P_row = 20e-3;          % row管间距
+P_col = 15e-3;      % col管间距
 
 Fin_pitch_net = Fin_pitch - dx_fin; % 翅片净间距
 L_fin = (row+0.5)*P_row;
 H_fin = col*P_col;
-A_fin = L_fin*H_fin - row*col*pi*D_outer^2/4;
+A_fin = L_fin*H_fin - row*col*pi*(D_outer+1e-3)^2/4;
 
 % 平均翅片高就是P_col
 fin_num = floor(L/Fin_pitch);
 A_MA = fin_num*A_fin*2 + pi*D_outer*Tube_num*(L-fin_num*dx_fin);
+%A_MA = 0.5852;
 A_R  = row*col*L*pi*D;
 
 GeoCondition = struct("L",L,...
@@ -101,13 +103,13 @@ TCinf = struct( ...
 % 边界条件-boundary condition——后续要把边界条件写成结构体
 % 工质侧
 h_R_inlet = 300;
-mdot_R_inlet = 20e-3;
+mdot_R_inlet = 30e-3;
 p_R_inlet = 1;
 
 % 空气侧
 % 空气侧采用速度是非常自然的选择，质量流量实在是不好用
-T_MA_inlet = 300;          % K
-mdot_MA_inlet = 1.95e-2;   % kg/s
+T_MA_inlet = 305;          % K
+mdot_MA_inlet = 3.95e-2;   % kg/s
 p_MA_inlet = 0.101325;     % MPa
 RH_MA_inlet = 0.5;         % 1
 x_MA_inlet = RHTox(RH_MA_inlet,T_MA_inlet,p_MA_inlet*1e6);      % 函数要求输入的压力单位为Pa
@@ -186,7 +188,7 @@ tic
 xout = fsolve(@(x) ResidualFun(x,BDCondition,GeoCondition,TCinf),x0,options);
 toc
 
-fprintf("该结果为在划分控制体数量%d,进口空气温度 %d K,进口空气质量流量%fkg/s,进口工质压力%2.2fMPa,进口工质质量流量%2.4f,进口工质焓%5.2f的计算结果",CV_num,T_MA_inlet,mdot_MA_inlet,p_R_inlet,mdot_R_inlet,h_R_inlet)
+fprintf("该结果为在划分控制体数量%d,进口空气温度 %d K,进口空气质量流量%fkg/s,进口工质压力%2.2fMPa,进口工质质量流量%2.4fkg/s,进口工质焓%5.2fkJ/kg的计算结果",CV_num,T_MA_inlet,mdot_MA_inlet,p_R_inlet,mdot_R_inlet,h_R_inlet)
 
 %%
 ResidualFun(xout,BDCondition,GeoCondition,TCinf);
@@ -298,7 +300,7 @@ h_R_inlet = BDCondition.BD_R.h_R_inlet;
 mdot_MA_inlet = BDCondition.BD_MA.mdot_MA_inlet;
 T_MA_inlet = BDCondition.BD_MA.T_MA_inlet;
 
-F_Q_R = (dEF_R - Q/1e3);%/(mdot_R_inlet*h_R_inlet);
+F_Q_R = (dEF_R- Q/1e3);%/(mdot_R_inlet*h_R_inlet);
 F_Q_MA = (dEF_MA + Q);
 %% 组装并输出最终残差
 %F = [F_R,F_MA,F_Q_MA',F_Q_R'];

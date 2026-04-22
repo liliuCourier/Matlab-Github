@@ -74,13 +74,14 @@ veloctiy_CV = 0.5*(mdot_CV./Din_CV+mdot_CV./Dout_CV)/S;
 % 计算每根管的Re
 Re_CV = abs(veloctiy_CV)*D./(Nutube_CV*1e-6);
 Re_satliq_CV = abs(mdot_CV).*vsatliq_CV*D./(S*Nusatliq_CV*1e-6);
-
+Re_1 = abs(mdot_CV).*(1-xtube_CV + xtube_CV.*sqrt(vsatvap_CV./vsatliq_CV))*D/S./(Nusatliq_CV*1e-6./vsatliq_CV);
 %% 换热与摩擦关联式调用与计算——后续要做成模块化
 % 计算管Re
 f_CV =      (-1.8*log10(6.9./Re_CV+(r/3.7)^1.11)).^(-2);
 
 % 计算压差，没有计算bend的局部压力损失，这是后续需要改进的
-dp_f_CV =   (f_CV*L/CV_num).*(mdot_CV.^2)./(2*Dtube_CV*D*S^2);    % Pa  摩擦压损
+L_total = L + 30*D;   % 考虑弯道带来的局部阻力损失
+dp_f_CV =   (f_CV*L_total/CV_num).*(mdot_CV.^2)./(2*Dtube_CV*D*S^2);    % Pa  摩擦压损
 dp_v_CV =   16*mdot_CV.^2/(pi^2*D^4).*(1./Dout_CV - 1./Din_CV);   % Pa  动力压损
 dp_all =    (dp_f_CV + dp_v_CV);                                  % Pa
 
@@ -88,7 +89,8 @@ dp_all =    (dp_f_CV + dp_v_CV);                                  % Pa
 Nu_1P_CV = (f_CV/8.*max(Re_CV - 1000,0).*Prtube_CV)./(1+12.7*sqrt(f_CV/8).*(Prtube_CV.^(2/3)-1));
 h_1P_CV = ktube_CV.*Nu_1P_CV/D;
 
-Nu_2P_CV = 0.05*(((1-xtube_CV+xtube_CV.*sqrt(vsatvap_CV./vsatliq_CV)).*Re_satliq_CV).^0.8).*Prsatliq_CV.^0.33;
+Nu_2P_CV = 0.05*((Re_1).^0.8).*Prsatliq_CV.^0.33;
+%Nu_2P_CV = 0.05*(((1-xtube_CV+xtube_CV.*sqrt(vsatvap_CV./vsatliq_CV)).*Re_satliq_CV).^0.8).*Prsatliq_CV.^0.33;
 h_2P_CV = ksatliq_CV.*Nu_2P_CV/D;
 
 %% 两相-单相的换热混合 & 层流湍流的压力损失混合

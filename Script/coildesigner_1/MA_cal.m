@@ -17,6 +17,7 @@ D_outer =   GeoCondition.D_outer;       % 管外径
 L =         GeoCondition.L;             % 管长
 
 Fin_pitch = GeoCondition.Fin_pitch;     % 翅片间距
+H_fin =     GeoCondition.H_fin;         % 翅片宽、深——平行风流动方向——longi length
 L_fin =     GeoCondition.L_fin;         % 翅片长度——垂直于风流动方向——vertical length
 P_row =     GeoCondition.P_row;         % 管间距，vertical spacing
 P_col =     GeoCondition.P_col;         % 管间距，horizontal spacing
@@ -97,28 +98,67 @@ h_w_vaporize =  (h_w_vaporize_in + h_w_vaporize_out)/2;
 
 % 进出口的总焓
 vin =   Ra*Tin./(pin*1e6);                              % m^3/kg    控制体进口比容，采用理想气体方程计算
+vout =   Ra*Tout./(pout*1e6);   
 h_in  = h_w_in.*x_w_in + h_air_in.*(1-x_w_in);          % J/kg      空气侧控制体的进口总焓
 h_out = h_w_out.*x_w_out + h_air_out.*(1-x_w_out);      % J/kg      空气侧控制体的出口总焓
 Q_vap = m_condense.*h_w_vaporize;                       % W         冷凝热量-气相水放出热量变为液态水
 %% 关联式区域
 % 管外流动关联式
+%% 原来采用的不知道哪里来的关联式
+% A_total = L_fin*L;                                                  % m^2   在发生截面收缩之前的总通流面积
+% velocity_in = abs(mdot).*vin/(A_total/row/CV_num);                  % m/s   对应的进口速度
+% scale = (P_row/(P_row-D_outer))*(Fin_pitch/(Fin_pitch - dx_fin));   % 1     截面收缩比的倒数
+% %Dh = 4*H_fin/(P_row/(P_row-D_outer))/(Fin_pitch/(Fin_pitch - dx_fin));
+% 
+% % 垂直于流动方向发生的最大收缩率
+% velocity_max = velocity_in*(P_row/(P_row-D_outer))*(Fin_pitch/(Fin_pitch - dx_fin));        % m/s  最大流速
+% Re = D_outer*velocity_max./(v_CV.*vis_CV);                                                  % 1    根据最大流速计算的雷诺数
+% N = repelem([1:col]',row*CV_num);                                                           % 1    管排数矩阵
+% 
+% j = 0.324*Re.^(-0.486)*(Fin_pitch/D_outer)^(-0.277)*(P_row/P_col)^(0.099).*N.^(-0.041);     % 1 管外流动j因子关联式
+% f= 0.324*Re.^(-0.256)*(Fin_pitch/D_outer)^(-0.445)*(P_row/P_col)^(0.168).*N.^(-0.056);      % 1 管外流动f因子关联式
+
+% h = 1.6*j.*(1./v_CV).*velocity_max.*cp_CV.*Pr_CV.^(-2/3);                                          % 计算对流换热系数
+% dp = f.*(A_MA/(A_total/scale)).*(velocity_max.^2./v_CV/2);                                  % 计算压力损失
+%% 而后采用的和coildesigner一致的关联式
+
 A_total = L_fin*L;                                                  % m^2   在发生截面收缩之前的总通流面积
-velocity_in = abs(mdot).*vin/(A_total/row/CV_num);                  % m/s   对应的进口速度
+velocity_in = abs(mdot).*vin/(A_total/row/CV_num);     
+velocity_out = abs(mdot).*vout/(A_total/row/CV_num);                  % m/s   对应的进口速度
 scale = (P_row/(P_row-D_outer))*(Fin_pitch/(Fin_pitch - dx_fin));   % 1     截面收缩比的倒数
-%Dh = 4*H_fin/(P_row/(P_row-D_outer))/(Fin_pitch/(Fin_pitch - dx_fin));
+velocity_max = velocity_in*scale;
+velocity_avg = (velocity_out + velocity_in)/2;
 
-% 垂直于流动方向发生的最大收缩率
-velocity_max = velocity_in*(P_row/(P_row-D_outer))*(Fin_pitch/(Fin_pitch - dx_fin));        % m/s  最大流速
-Re = D_outer*velocity_max./(v_CV.*vis_CV);                                                  % 1    根据最大流速计算的雷诺数
-N = repelem([1:col]',row*CV_num);                                                           % 1    管排数矩阵
+N = repelem([1:col]',row*CV_num);   
 
-j = 0.324*Re.^(-0.486)*(Fin_pitch/D_outer)^(-0.277)*(P_row/P_col)^(0.099).*N.^(-0.041);     % 1 管外流动j因子关联式
-f= 0.324*Re.^(-0.256)*(Fin_pitch/D_outer)^(-0.445)*(P_row/P_col)^(0.168).*N.^(-0.056);      % 1 管外流动f因子关联式
+Dh = 4 * H_fin * A_total/scale/A_MA;
+Re = D_outer*velocity_max./(v_CV.*vis_CV);
+
+P1 = 1.9 - 0.23*log(Re);
+P2 = -0.236+0.126*log(Re);
+P3 = -0.361 - 0.042*N./log(Re) + 0.158*log(N*(Fin_pitch/D_outer)^0.41);
+P4 = -1.224 - 0.076*(P_col/Dh)^1.42./log(Re);
+P5 = -0.083 + 0.058*N./log(Re);
+P6 = -5.735 + 1.21*log(Re./N);
+F1 = -0.764 + 0.739*P_row/P_col + 0.177*Fin_pitch/D_outer - 0.00758./N;
+F2 = -15.689 + 64.021./log(Re);
+F3 = 1.696 - 15.695./log(Re);
+
+j1 = 0.108*(Re.^(-0.29)).*((P_row/P_col).^P1)*(Fin_pitch/D_outer)^(-1.084)*(Fin_pitch/Dh)^(-0.786).*(Fin_pitch/P_row).^P2;
+j2 = 0.086*(Re.^P3).*(N.^P4).*((Fin_pitch/D_outer).^(P5)).*((Fin_pitch/Dh).^(P6))*(Fin_pitch/P_row)^(-0.93);
+
+f = 0.0267*(Re.^F1).*((P_row/P_col).^F2).*((Fin_pitch/D_outer).^F3);
+j = [j1(1:CV_num*row);j2(CV_num*row + 1:end)];
 
 h = j.*(1./v_CV).*velocity_max.*cp_CV.*Pr_CV.^(-2/3);                                          % 计算对流换热系数
-dp = f.*(A_MA/(A_total/scale)).*(velocity_max.^2./v_CV/2);                                  % 计算压力损失
+%dp_f = f.*(H_fin/col/Dh).*(velocity_max.^2./v_CV/2) ;  
+dp_f = f.*(A_MA/(A_total/scale)).*(velocity_max.^2./v_CV/2);
+%dp_v = 0.5*velocity_in.^2./vout - 0.5*velocity_in.^2./vin  ;
+dp = dp_f ;%+ dp_v;
 
 %% 残差构造
+% 空气侧的压降一般在1e0~1e3的量级
+% 空气侧的流量分配也不大
 F(1:row*col*CV_num) =   dp - (pin - pout)*1e6;                                      % 流量——压力损失方程
 F(row*col*CV_num+1 : 2*row*col*CV_num) = m_w_equation/1e-8/CV_num;                  % 水质量流量守恒方程
 F(2*row*col*CV_num+1) = (mdot_inlet - ones(1,row*CV_num)*mdot_init)/mdot_inlet;     % 进口流量分配约束
