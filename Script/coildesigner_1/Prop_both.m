@@ -5,7 +5,7 @@ libLoc = 'E:\refprop10\REFPROP';
 % 工质侧物性调用
 R = 'R134a';
 R_prop = Generate_TP_Prop_enthalpyVersion(libLoc,R,0.001,5.5,80,510,100,25,25);
-global h_sat_liq h_sat_vap v_vap v_liq hmin hmax Pr_vap Pr_liq Nu_vap Nu_liq T_vap T_liq k_vap k_liq
+global h_sat_liq h_sat_vap v_vap v_liq hmin hmax Pr_vap Pr_liq Nu_vap Nu_liq T_vap T_liq k_vap k_liq 
 
 hmin = R_prop.h_min;
 hmax = R_prop.h_max;
@@ -41,7 +41,7 @@ T = 273.15 + [1:1:100]';
 [P_vap_sat,h_vaporaize_w] = getFluidProperty(libLoc,'P,HEATVAPZ','T',T,'Q',1,R_2, 1, 1, 'MASS BASE SI');
 [h_w,vis_w,k_w,Pr_w] = getFluidProperty(libLoc,'H,VIS,TCX,PRANDTL','T',T,'P',P_vap_sat,R_2, 1, 1, 'MASS BASE SI');
 
-global hw hvaporize visw kw Prw hair visair kair Prair psatvap cpair
+global hw hvaporize visw kw Prw hair visair kair Prair psatvap cpair PropLoaded
 
 % 水的物性仍然采用二维插值表
 [x1,x2] = ndgrid(T,P_vap_sat);
