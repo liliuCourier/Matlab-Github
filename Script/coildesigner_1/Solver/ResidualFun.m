@@ -102,7 +102,7 @@ mdot_MA_inlet = BDCondition.BD_MA.mdot_MA_inlet;
 T_MA_inlet = BDCondition.BD_MA.T_MA_inlet;
 
 % 没有解决残差问题，仍然是暂缓之策
-Q_residual = 1500/CV_num/Tube_num;
+Q_residual = 2500/CV_num/Tube_num;
 
 F_Q_R = (dEF_R_1*1e3- Q)/Q_residual;%/(mdot_R_inlet*h_R_inlet);
 F_Q_MA = (dEF_MA + Q)/Q_residual;

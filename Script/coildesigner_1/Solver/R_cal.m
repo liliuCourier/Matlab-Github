@@ -126,7 +126,7 @@ dp_ref = (f_ref*L_total/CV_num/D)*((0.5*veloctiy_vap_ref+0.5*veloctiy_liquid_ref
 % 但是整体的量级能够保持在0.1~1
 F(1:con_num) = TC_matrix*mdot/mdot_inlet;                                                         % 进口流量分配约束
 F(con_num+1) = (mdot_inlet + inlet_matrix'*mdot)/mdot_inlet;                                      % 节点流量分配约束
-F(con_num+2:con_num+Tube_num*CV_num+1) = (dp_all(:) - (pin_CV(:) - pout_CV(:))*1e6)/(0.0003*1e6);%dp_ref;%(0.0005*1e6);  % 质量流量——压力损失方程
+F(con_num+2:con_num+Tube_num*CV_num+1) = (dp_all(:) - (pin_CV(:) - pout_CV(:))*1e6)/dp_ref;%(0.0005*1e6);(0.0003*1e6);  % 质量流量——压力损失方程
 
 % 能流输出——净流入
 dEF = mdot_CV.*(hin_CV - hout_CV);

@@ -22,7 +22,7 @@ con_num =  size(TC_matrix,1);
 
 row = 4;
 col = 2;
-CV_num = 1;
+CV_num = 5;
 
 %GeoConditionStrcut;
 L = 0.5;
@@ -101,7 +101,6 @@ TCinf = struct( ...
 
 %% 边界条件
 % 边界条件-boundary condition——后续要把边界条件写成结构体
-% 工质侧
 % 一般也会对这些参数做出限制，譬如风量，10m/s顶天了
 % 最小也不能太小，在关联式上会有限制，风侧的Re数低于100就会警告
 % 脱离关联式Re范围不可取
@@ -110,14 +109,14 @@ Area_air = L*L_fin;
 Ra = 287.047;
 Density_air = p_MA_inlet*1e6/Ra/T_MA_inlet;
 
-
-h_R_inlet = 450;
+% 工质侧
+h_R_inlet = 420;
 mdot_R_inlet = 20e-3;
 p_R_inlet = 1;
 
 % 空气侧
 % 空气侧采用速度是非常自然的选择，质量流量实在是不好用
-T_MA_inlet = 285;          % K
+T_MA_inlet = 290;          % K
 mdot_MA_inlet = Density_air*Area_air*velocity_air_in;      % kg/s
 p_MA_inlet = 0.101325;     % MPa
 RH_MA_inlet = 0.2;         % 1
@@ -174,19 +173,6 @@ x0 = [mdot_R_init;
       pinside_MA_init; 
       p_MA_outlet];
 
-% 调试用
-% x0 = [mdot_MA_init; 
-%       Tout_MA_init; 
-%       x_MA_w_out_init; 
-%       pinside_MA_init; 
-%       p_MA_outlet];
-
-% x0 = [mdot_R_init; 
-%       hout_R_init; 
-%       p_R_inside_init; 
-%       p_R_con_init; 
-%       p_R_outlet];
-
 %% 求解
 
 % 算法采用levenberg-marquardt，经典非线性算法
@@ -202,8 +188,10 @@ tic
 [xout,~,exitflag] = fsolve(@(x) ResidualFun(x,BDCondition,GeoCondition,TCinf),x0,options);
 toc
 
-fprintf("该结果为在划分控制体数量%d,进口空气温度 %d K,进口空气质量流量%fkg/s,进口工质压力%2.2fMPa,进口工质质量流量%2.4fkg/s,进口工质焓%5.2fkJ/kg的计算结果",CV_num,T_MA_inlet,mdot_MA_inlet,p_R_inlet,mdot_R_inlet,h_R_inlet)
-
+if exitflag == 1
+    fprintf("该结果为在划分控制体数量%d,进口空气温度 %d K,进口空气质量流量%fkg/s,进口工质压力%2.2fMPa,进口工质质量流量%2.4fkg/s,进口工质焓%5.2fkJ/kg的计算结果",CV_num,T_MA_inlet,mdot_MA_inlet,p_R_inlet,mdot_R_inlet,h_R_inlet);
+    run("PostProcessing.m")
+end
 %%
 %ResidualFun(xout,BDCondition,GeoCondition,TCinf);
 %% 额外需要的函数
